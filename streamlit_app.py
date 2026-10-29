@@ -8,7 +8,7 @@ import analytics
 
 st.set_page_config(page_title='BI Analyst for E-Presso', layout='wide')
 st.title('BI Analyst for E-Presso')
-st.caption('Stage 2: load and profile each source independently before joining or calculating metrics.')
+st.caption('Stage 3: validate the raw Sales revenue total before adding joins, filters, or charts.')
 
 
 @st.cache_data(show_spinner=False)
@@ -79,10 +79,19 @@ with tab_profiles:
             right.markdown('**Data types**')
             right.dataframe(profile['dtypes'], use_container_width=True)
 
-    st.info('Next checkpoint: verify one total-revenue result against Power BI before adding dashboard features.')
+    st.info('Compare the single revenue result with Power BI before adding dashboard features.')
 
 with tab_dashboard:
-    st.info('Dashboard features come after the total revenue is reconciled with Power BI.')
+    revenue = analytics.get_total(tables['Sales'], 'Revenue')
+    if revenue.error:
+        st.error(f'Could not calculate total revenue: {revenue.error}')
+    else:
+        st.metric('Total Revenue (source currency)', f'{revenue.value:,.2f}')
+        st.caption(
+            f"Sum of the Sales table's Revenue column across all {revenue.rows_used:,} "
+            'usable rows. No joins or filters are applied. Revenue is not profit.'
+        )
+        st.warning('Reconcile this figure with Power BI before adding filters or charts.')
 
 with tab_assistant:
     st.info('The assistant comes after the $1,000 test, as required by the project instructions.')

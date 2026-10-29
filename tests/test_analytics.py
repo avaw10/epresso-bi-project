@@ -97,6 +97,8 @@ def test_load_epresso_sources_reads_separate_tables_and_survey_header():
         'Survey ID', 'Store ID', 'Year', 'Satisfaction', 'Interest',
     ]
     assert tables['Survey Results'].loc[0, 'Survey ID'] == 'SH01_25'
+    total = analytics.get_total(tables['Sales'], 'Revenue')
+    assert total.value == 1000 and total.rows_used == 1
 
 
 def test_merge_without_fan_out(df):

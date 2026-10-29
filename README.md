@@ -36,15 +36,18 @@ These are based on the provided files and should be confirmed against the
 assignment's data definitions. Joins and merge checks have not been performed.
 
 ## Metric definitions
-Revenue has not yet been calculated. The next checkpoint is to calculate one
-total and reconcile it with Power BI. Revenue is not profit.
+Total revenue is the sum of the `Revenue` column in the raw `Sales` sheet across
+all rows, before joins or filters. The current source files produce
+`42,174,440.00` across 25,200 rows; this still needs reconciliation with Power BI.
+Revenue is not profit.
 
 ## Assistant
 Not part of the current checkpoint.
 
 ## Validation
-Source profiling and grain-key checks are covered by the test suite. Power BI
-reconciliation and the $1,000 test are still pending.
+Source profiling, grain-key checks, and the one-row revenue calculation are
+covered by the test suite. Power BI reconciliation and the $1,000 test are
+still pending.
 
 ## Limitations
 The app currently profiles source tables only. It cannot yet report revenue,
