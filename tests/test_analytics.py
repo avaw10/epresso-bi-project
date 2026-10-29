@@ -64,4 +64,3 @@ def test_dispatcher_rejects_unknown_tool_and_arguments(df):
 def test_unsupported_question(df):
     out = agent.answer_question('What is the meaning of life?', df)
     assert 'cannot answer' in out['findings']
-ß
