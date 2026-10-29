@@ -1,97 +1,81 @@
-"""E-Presso source loading and profiling checkpoint."""
-from zipfile import BadZipFile
-
-import pandas as pd
+"""Main app. Checkpoint 0: loads a file and shows a profile.
+Keep calculations in analytics.py and the assistant in agent.py."""
 import streamlit as st
 
+import agent
 import analytics
+
+MAX_QUESTIONS = 15  # per-session limit for the assistant
 
 st.set_page_config(page_title='BI Analyst for E-Presso', layout='wide')
 st.title('BI Analyst for E-Presso')
-st.caption('Stage 3: validate the raw Sales revenue total before adding joins, filters, or charts.')
+st.caption('Hello World')
 
 
 @st.cache_data(show_spinner=False)
-def cached_load_epresso_sources(sales_bytes: bytes, stores_bytes: bytes, survey_bytes: bytes):
-    return analytics.load_epresso_sources(sales_bytes, stores_bytes, survey_bytes)
+def cached_load(file_bytes: bytes, filename: str, sheet_name):
+    # The cache is keyed on the file CONTENTS, so a modified file is never
+    # confused with the original one.
+    return analytics.load_table(file_bytes, filename, sheet_name)
 
 
 with st.sidebar:
-    st.header('E-Presso source files')
-    sales_file = st.file_uploader(
-        'Sales workbook (Sales, Products, and Categories sheets)',
-        type=['xlsx', 'xlsm', 'xls'],
-        key='sales_workbook',
-    )
-    stores_file = st.file_uploader(
-        'Stores file (tab-delimited CSV)',
-        type=['csv', 'tsv', 'txt'],
-        key='stores_file',
-    )
-    survey_file = st.file_uploader(
-        'Survey workbook',
-        type=['xlsx', 'xlsm', 'xls'],
-        key='survey_workbook',
-    )
+    st.header('Data')
+    uploaded = st.file_uploader('Upload a CSV or Excel file', type=['csv', 'txt', 'tsv', 'xlsx', 'xls'])
+    sheet = 0
+    if uploaded is not None and uploaded.name.lower().endswith(analytics.EXCEL_EXT):
+        sheet = st.selectbox('Sheet', analytics.excel_sheet_names(uploaded.getvalue()))
 
-if not all((sales_file, stores_file, survey_file)):
-    st.info('Upload all three source files in the sidebar to view their independent profiles.')
+if uploaded is None:
+    st.info('Upload a file in the sidebar to begin.')
     st.stop()
 
 try:
-    tables = cached_load_epresso_sources(
-        sales_file.getvalue(),
-        stores_file.getvalue(),
-        survey_file.getvalue(),
-    )
-except (ValueError, OSError, KeyError, UnicodeError, BadZipFile, pd.errors.ParserError) as exc:
-    st.error(f'Could not load the E-Presso source files: {exc}')
+    df = cached_load(uploaded.getvalue(), uploaded.name, sheet)
+except Exception as exc:  # show a readable message instead of a traceback
+    st.error(f'Could not read that file: {exc}')
     st.stop()
 
-tab_profiles, tab_dashboard, tab_assistant = st.tabs(
-    ['Data and profile', 'Dashboard', 'Assistant'],
-)
+tab_data, tab_dash, tab_assistant = st.tabs(['Data and profile', 'Dashboard', 'Assistant'])
 
-with tab_profiles:
-    st.subheader('Source profiles')
-    st.caption('Tables are shown separately. No joins or revenue calculations have been performed.')
+with tab_data:
+    profile = analytics.profile_table(df)
+    c1, c2, c3 = st.columns(3)
+    c1.metric('Rows', f"{profile['rows']:,}")
+    c2.metric('Columns', profile['columns'])
+    c3.metric('Duplicate rows', profile['duplicate_rows'])
+    st.subheader('Preview')
+    st.dataframe(df.head(50))
+    left, right = st.columns(2)
+    left.subheader('Missing values')
+    left.dataframe(profile['missing'])
+    right.subheader('Data types')
+    right.dataframe(profile['dtypes'])
 
-    for table_name, df in tables.items():
-        spec = analytics.SOURCE_TABLES[table_name]
-        with st.expander(table_name, expanded=table_name == 'Sales'):
-            st.markdown(f"**Grain:** {spec['grain']}")
-            profile = analytics.profile_table(df)
-            key_profile = analytics.profile_key(df, spec['key_columns'])
-            c1, c2, c3 = st.columns(3)
-            c1.metric('Rows', f"{profile['rows']:,}")
-            c2.metric('Columns', profile['columns'])
-            c3.metric('Exact duplicate rows', profile['duplicate_rows'])
-            st.markdown(
-                f"**Candidate grain key:** {', '.join(key_profile['columns'])}  \n"
-                f"Unique combinations: {key_profile['unique_values']:,} / {len(df):,}; "
-                f"missing-key rows: {key_profile['missing_rows']:,}; "
-                f"duplicate-key rows: {key_profile['duplicate_rows']:,}"
-            )
-            st.dataframe(df.head(50), use_container_width=True)
-            left, right = st.columns(2)
-            left.markdown('**Missing values**')
-            left.dataframe(profile['missing'], use_container_width=True)
-            right.markdown('**Data types**')
-            right.dataframe(profile['dtypes'], use_container_width=True)
-
-    st.info('Compare the single revenue result with Power BI before adding dashboard features.')
-
-with tab_dashboard:
-    revenue = analytics.get_total(tables['Sales'], 'Revenue')
-    if revenue.error:
-        st.error(f'Could not calculate total revenue: {revenue.error}')
-    else:
-        st.metric('Total Revenue (source currency)', f'{revenue.value:,.2f}')
-        st.caption(
-            f"Sum of the Sales table's Revenue column across all {revenue.rows_used:,} "
-            'usable rows. No joins or filters are applied. Revenue is not profit.'
-        )
-        st.warning('Reconcile this figure with Power BI before adding filters or charts.')
+with tab_dash:
+    st.info('TODO: KPIs, filters, and at least three charts go here. '
+            'Calculate everything from the loaded data. Never hardcode results.')
 
 with tab_assistant:
-    st.info('The assistant comes after the $1,000 test, as required by the project instructions.')
+    st.caption('Mode: rules-based starter. Describe what you actually built here.')
+    st.session_state.setdefault('n_questions', 0)
+    st.session_state.setdefault('history', [])
+    for item in st.session_state['history']:
+        with st.chat_message('user'):
+            st.write(item['question'])
+        with st.chat_message('assistant'):
+            st.markdown(f"**Scope:** {item['answer']['scope']}")
+            st.markdown(f"**Findings:** {item['answer']['findings']}")
+            if item['answer']['interpretation']:
+                st.markdown(f"**Interpretation:** {item['answer']['interpretation']}")
+            with st.expander('Tool-call log'):
+                st.json(item['answer']['tool_log'])
+    question = st.chat_input('Ask a question about the loaded data')
+    if question:
+        if st.session_state['n_questions'] >= MAX_QUESTIONS:
+            st.warning('Question limit reached for this session. Reload the page to start over.')
+        else:
+            st.session_state['n_questions'] += 1
+            answer = agent.answer_question(question, df, mode='rules')
+            st.session_state['history'].append({'question': question, 'answer': answer})
+            st.rerun()

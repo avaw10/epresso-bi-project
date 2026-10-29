@@ -10,85 +10,10 @@ import pandas as pd
 EXCEL_EXT = ('.xlsx', '.xlsm', '.xls')
 TEXT_EXT = ('.csv', '.txt', '.tsv')
 
-SOURCE_TABLES = {
-    'Sales': {
-        'grain': 'One row per store, date, and product combination.',
-        'key_columns': ['Date', 'Store ID', 'Product ID'],
-    },
-    'Products': {
-        'grain': 'One row per product.',
-        'key_columns': ['Product ID'],
-    },
-    'Categories': {
-        'grain': 'One row per product category.',
-        'key_columns': ['Category ID'],
-    },
-    'Stores': {
-        'grain': 'One row per store or sales channel.',
-        'key_columns': ['ID'],
-    },
-    'Survey Results': {
-        'grain': 'One row per store and survey year.',
-        'key_columns': ['Store ID', 'Year'],
-    },
-}
-
 
 # ---------------------------------------------------------------- loading
 def excel_sheet_names(file_bytes: bytes) -> list[str]:
     return pd.ExcelFile(io.BytesIO(file_bytes)).sheet_names
-
-
-def _read_required_sheet(file_bytes: bytes, sheet_name: str,
-                         required_columns: set[str], header=0) -> pd.DataFrame:
-    df = pd.read_excel(io.BytesIO(file_bytes), sheet_name=sheet_name, header=header)
-    missing = required_columns - set(df.columns)
-    if missing:
-        raise ValueError(f'Sheet {sheet_name!r} is missing required columns: {sorted(missing)}')
-    return df
-
-
-def load_epresso_sources(sales_bytes: bytes, stores_bytes: bytes,
-                         survey_bytes: bytes) -> dict[str, pd.DataFrame]:
-    """Load each E-Presso source table independently; do not join tables here."""
-    sales_sheets = set(excel_sheet_names(sales_bytes))
-    required_sales_sheets = {'Sales', 'Products', 'Categories'}
-    missing_sheets = required_sales_sheets - sales_sheets
-    if missing_sheets:
-        raise ValueError(f'Sales workbook is missing sheets: {sorted(missing_sheets)}')
-
-    tables = {
-        'Sales': _read_required_sheet(
-            sales_bytes, 'Sales',
-            {'Sales ID', 'Date', 'Store ID', 'StoreYear', 'Category ID', 'Product ID', 'Revenue'},
-        ),
-        'Products': _read_required_sheet(
-            sales_bytes, 'Products', {'Product ID', 'Product'},
-        ),
-        'Categories': _read_required_sheet(
-            sales_bytes, 'Categories', {'Category ID', 'Category'},
-        ),
-    }
-
-    stores = pd.read_csv(
-        io.BytesIO(stores_bytes), sep='\t',
-        dtype={'ID': 'string', 'PostalCode': 'string'},
-    )
-    required_store_columns = {
-        'ID', 'City', 'State', 'PostalCode', 'Phone', 'StoreType',
-        'Market', 'Location', 'Manager',
-    }
-    missing_store_columns = required_store_columns - set(stores.columns)
-    if missing_store_columns:
-        raise ValueError(f'Stores file is missing required columns: {sorted(missing_store_columns)}')
-    tables['Stores'] = stores
-
-    tables['Survey Results'] = _read_required_sheet(
-        survey_bytes, 'Survey Results',
-        {'Survey ID', 'Store ID', 'Year', 'Satisfaction', 'Interest'},
-        header=2,
-    )
-    return tables
 
 
 def load_table(file_bytes: bytes, filename: str, sheet_name=0) -> pd.DataFrame:
@@ -115,21 +40,6 @@ def profile_table(df: pd.DataFrame) -> dict:
             'pct_missing': (missing.values / max(len(df), 1) * 100).round(2),
         }),
         'dtypes': pd.DataFrame({'column': df.columns, 'dtype': df.dtypes.astype(str).values}),
-    }
-
-
-def profile_key(df: pd.DataFrame, key_columns: list[str]) -> dict:
-    """Check completeness and uniqueness of a proposed table key."""
-    missing_columns = set(key_columns) - set(df.columns)
-    if missing_columns:
-        raise ValueError(f'Unknown key column(s): {sorted(missing_columns)}')
-    missing_key = df[key_columns].isna().any(axis=1)
-    complete_keys = df.loc[~missing_key, key_columns]
-    return {
-        'columns': key_columns,
-        'missing_rows': int(missing_key.sum()),
-        'duplicate_rows': int(complete_keys.duplicated().sum()),
-        'unique_values': int(len(complete_keys.drop_duplicates())),
     }
 
 
