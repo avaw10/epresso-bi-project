@@ -2,7 +2,7 @@
 Keep calculations in analytics.py and the assistant in agent.py."""
 from pathlib import Path
 import streamlit as st
-
+import pandas as pd
 import agent
 import analytics
 
