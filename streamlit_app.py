@@ -123,7 +123,6 @@ with tab_dash:
     )
 
     rows_before = len(sales_df)
-    st.write("DEBUG: merged_df type:", type(merged_df))
     rows_after = len(merged_df)
     
     revenue_before = analytics.calculate_total_revenue(sales_df)
