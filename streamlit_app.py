@@ -197,11 +197,11 @@ with tab_dash:
     st.subheader("Total Revenue by Year")
     st.write("Available columns:", merged_df.columns.tolist())
     revenue_by_year = (
-    merged_df.groupby("Year")["Revenue"]
-    .sum()
-    .reset_index()
-    .sort_values("Year")
-    )
+        merged_df.groupby("Year")["Revenue"]
+            .sum()
+            .reset_index()
+            .sort_values("Year")
+ )
 
 st.bar_chart(
     revenue_by_year,
