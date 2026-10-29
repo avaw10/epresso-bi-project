@@ -228,6 +228,28 @@ with tab_dash:
 
     st.plotly_chart(fig, use_container_width=True)
 
+    st.subheader("Total Revenue by Store Type")
+
+    revenue_by_store_type = (
+        merged_df.groupby("Market")["Revenue"]
+        .sum()
+        .reset_index()
+        .sort_values("Revenue", ascending=True)
+    )
+
+    fig_store = px.bar(
+        revenue_by_store_type,
+        x="Revenue",
+        y="Market",
+        orientation="h",
+        labels={
+            "Revenue": "Total Revenue ($)",
+            "Market": "Store Type"
+        }
+    )
+
+    st.plotly_chart(fig_store, use_container_width=True)
+
 with tab_assistant:
     st.caption('Mode: rules-based starter. Describe what you actually built here.')
     st.session_state.setdefault('n_questions', 0)
