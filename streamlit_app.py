@@ -9,7 +9,7 @@ MAX_QUESTIONS = 15  # per-session limit for the assistant
 
 st.set_page_config(page_title='E-Presso Dashboard Analyst', layout='wide')
 st.title('E-Presso Dashboard Analyst')
-st.caption('Hello World')
+st.caption('Upload a file to explore the data and ask questions.')
 
 
 @st.cache_data(show_spinner=False)
