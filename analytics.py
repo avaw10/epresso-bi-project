@@ -21,8 +21,9 @@ def load_table(file_bytes: bytes, filename: str, sheet_name=0) -> pd.DataFrame:
     name = filename.lower()
     buffer = io.BytesIO(file_bytes)
     if name.endswith(EXCEL_EXT):
-        if sheet_name == "Survey Results":
-            return pd.read_excel(buffer, sheet_name=sheet_name, header=1)
+        if "survey" in filename.casefold() or "survey" in str(sheet_name).casefold():
+            return pd.read_excel(buffer, sheet_name=sheet_name, header=2)
+
         return pd.read_excel(buffer, sheet_name=sheet_name)
     if name.endswith(TEXT_EXT):
         return pd.read_csv(buffer, sep=None, engine='python')  # sniffs the delimiter
@@ -141,70 +142,98 @@ def data_quality_report(df: pd.DataFrame) -> ToolResult:
 
 
 # ------------------------------------------------------------ merge check
-def check_merge(left: pd.DataFrame, right: pd.DataFrame, on, value_col: str, how: str = 'left'):
-    """Merge, and report whether the join changed the row count or the revenue sum.
-    `value_col` must be a numeric column in `left`. Returns (merged, report)."""
+def _require_columns(df: pd.DataFrame, columns, table_name: str) -> None:
+    missing = [column for column in columns if column not in df.columns]
+    if missing:
+        names = ', '.join(repr(column) for column in missing)
+        raise ValueError(f'{table_name} is missing required column(s): {names}.')
+
+
+def count_missing_or_non_numeric(df: pd.DataFrame, column: str) -> int:
+    """Count blank or non-numeric values in a column intended to be numeric."""
+    _require_columns(df, [column], 'Data')
+    return int(pd.to_numeric(df[column], errors='coerce').isna().sum())
+
+
+def check_merge(
+    left: pd.DataFrame,
+    right: pd.DataFrame,
+    on=None,
+    value_col: str = 'Revenue',
+    how: str = 'left',
+    *,
+    left_on=None,
+    right_on=None,
+    validate: str | None = None,
+):
+    """Merge and report row/revenue changes. Returns (merged, report)."""
+    if on is None and (left_on is None or right_on is None):
+        raise ValueError('Specify either `on` or both `left_on` and `right_on`.')
+
+    left_keys = on if on is not None else left_on
+    right_keys = on if on is not None else right_on
+    left_keys = [left_keys] if isinstance(left_keys, str) else list(left_keys)
+    right_keys = [right_keys] if isinstance(right_keys, str) else list(right_keys)
+    if len(left_keys) != len(right_keys):
+        raise ValueError('The left and right merge keys must have the same number of columns.')
+
+    _require_columns(left, [*left_keys, value_col], 'Left table')
+    _require_columns(right, right_keys, 'Right table')
+
     before_rows = len(left)
     before_sum = float(pd.to_numeric(left[value_col], errors='coerce').sum())
-    merged = left.merge(right, on=on, how=how)
+    # pandas matches null keys to other null keys. Excluding them prevents blank
+    # dimension keys from creating accidental matches or multiplying sales.
+    right_with_keys = right.dropna(subset=right_keys)
+    merge_keys = {'on': on} if on is not None else {
+        'left_on': left_on, 'right_on': right_on,
+    }
+    try:
+        merged = left.merge(
+            right_with_keys, how=how, validate=validate, **merge_keys,
+        )
+    except pd.errors.MergeError as exc:
+        raise ValueError(
+            'The right table has duplicate merge-key values; resolve them before merging.'
+        ) from exc
     after_rows = len(merged)
     after_sum = float(pd.to_numeric(merged[value_col], errors='coerce').sum())
-    fan_out = after_rows > before_rows or abs(after_sum - before_sum) > 1e-9
+    changed = after_rows != before_rows or abs(after_sum - before_sum) > 1e-9
     report = {
         'rows_before': before_rows, 'rows_after': after_rows,
         'sum_before': before_sum, 'sum_after': after_sum,
-        'changed': fan_out,
+        'changed': changed,
         'warning': ('The join changed the row count or the total. Check the grain and keys '
-                    'of both tables before using this result.') if fan_out else '',
+                    'of both tables before using this result.') if changed else '',
     }
     return merged, report
 
+
 def calculate_total_revenue(sales_df):
-    """Calculate total revenue from the Sales dataset."""
+    """Sum valid revenue values; blanks are reported separately as data quality."""
+    _require_columns(sales_df, ['Revenue'], 'Sales dataset')
+    return float(pd.to_numeric(sales_df['Revenue'], errors='coerce').sum())
 
-    if "Revenue" not in sales_df.columns:
-        raise ValueError("The Sales dataset is missing the Revenue column.")
-
-    revenue = pd.to_numeric(sales_df["Revenue"], errors="coerce")
-
-    if revenue.isna().any():
-        raise ValueError(
-            "Some revenue values are missing or cannot be interpreted as numbers."
-        )
-
-    return revenue.sum()
 
 def merge_sales_products(sales_df, products_df):
     """Merge sales with product names using Product ID."""
-
-    merged_df = sales_df.merge(
-        products_df,
-        on="Product ID",
-        how="left",
-        validate="many_to_one"
+    return check_merge(
+        sales_df, products_df, on='Product ID', value_col='Revenue',
+        how='left', validate='many_to_one',
     )
-    return merged_df
+
 
 def merge_sales_categories(sales_df, categories_df):
     """Add category information to sales records."""
-
-    merged_df = sales_df.merge(
-        categories_df,
-        on="Category ID",
-        how="left",
-        validate="many_to_one"
+    return check_merge(
+        sales_df, categories_df, on='Category ID', value_col='Revenue',
+        how='left', validate='many_to_one',
     )
-    return merged_df
+
 
 def merge_sales_stores(sales_df, stores_df):
     """Merge sales with store information using Store ID."""
-
-    merged_df = sales_df.merge(
-        stores_df,
-        left_on="Store ID",
-        right_on="ID",
-        how="left",
-        validate="many_to_one"
+    return check_merge(
+        sales_df, stores_df, left_on='Store ID', right_on='ID',
+        value_col='Revenue', how='left', validate='many_to_one',
     )
-
-    return merged_df
