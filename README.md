@@ -22,6 +22,7 @@ Stores | Stores | Each row represents a store and its associated information | I
 Survey Results | Survey Results in Support Survey | Each row represents a survey and which store and survey ID it belonged to | Survey ID | 107 | No
 
 Merge | Rows Before | Rows After | Revenue Sum Before | Revenue Sum After | Explanation
+Sales and Products by category ID | 25200 | 25200 | 42,174,440.00 | 42,174,440.00| The two tables were left merged by the category ID
 
 
 ## Metric definitions
