@@ -156,3 +156,18 @@ def check_merge(left: pd.DataFrame, right: pd.DataFrame, on, value_col: str, how
                     'of both tables before using this result.') if fan_out else '',
     }
     return merged, report
+
+def calculate_total_revenue(sales_df):
+    """Calculate total revenue from the Sales dataset."""
+
+    if "Revenue" not in sales_df.columns:
+        raise ValueError("The Sales dataset is missing the Revenue column.")
+
+    revenue = pd.to_numeric(sales_df["Revenue"], errors="coerce")
+
+    if revenue.isna().any():
+        raise ValueError(
+            "Some revenue values are missing or cannot be interpreted as numbers."
+        )
+
+    return revenue.sum()
