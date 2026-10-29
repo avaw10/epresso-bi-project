@@ -228,6 +228,42 @@ with tab_dash:
         merged_df["Month"].isin(selected_month_numbers)
     ]
 
+    # Category filter
+    selected_categories = st.multiselect(
+        "Filter by Category",
+        options=sorted(merged_df["Category"].dropna().unique()),
+        default=sorted(merged_df["Category"].dropna().unique())
+    )
+
+    # Store Type filter
+    selected_store_types = st.multiselect(
+        "Filter by Store Type",
+        options=sorted(merged_df["StoreType"].dropna().unique()),
+        default=sorted(merged_df["StoreType"].dropna().unique())
+    )
+
+    # Market filter
+    selected_markets = st.multiselect(
+        "Filter by Market",
+        options=sorted(merged_df["Market"].dropna().unique()),
+        default=sorted(merged_df["Market"].dropna().unique())
+    )
+
+    # State filter
+    selected_states = st.multiselect(
+        "Filter by State",
+        options=sorted(merged_df["State"].dropna().unique()),
+        default=sorted(merged_df["State"].dropna().unique())
+    )
+
+    # Apply all four filters
+    merged_df = merged_df[
+        merged_df["Category"].isin(selected_categories)
+        & merged_df["StoreType"].isin(selected_store_types)
+        & merged_df["Market"].isin(selected_markets)
+        & merged_df["State"].isin(selected_states)
+    ]
+
     st.dataframe(merged_df.head(20))
 
     st.subheader("Total Revenue by Year")
