@@ -181,6 +181,7 @@ def merge_sales_products(sales_df, products_df):
         how="left",
         validate="many_to_one"
     )
+    return merged_df
 
 def merge_sales_categories(sales_df, categories_df):
     """Add category information to sales records."""
@@ -191,6 +192,4 @@ def merge_sales_categories(sales_df, categories_df):
         how="left",
         validate="many_to_one"
     )
-
-    return merged_df
     return merged_df
