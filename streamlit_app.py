@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 import agent
 import analytics
+import plotly.express as px
 
 MAX_QUESTIONS = 15  # per-session limit for the assistant
 
@@ -200,16 +201,28 @@ with tab_dash:
         .reset_index()
         .sort_values("Year")
     )
-        revenue_by_year["Year"] = revenue_by_year["Year"].astype(str)
+    revenue_by_year["Year"] = revenue_by_year["Year"].astype(str)
 
     # Create ONE line chart
-    st.line_chart(
+    fig = px.line(
         revenue_by_year,
         x="Year",
         y="Revenue",
-        x_label="Year",
-        y_label="Total Revenue"
+        title="Total Revenue by Year",
+        markers=True
     )
+
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=[2025, 2026, 2027, 2028, 2029],
+        ticktext=["2025", "2026", "2027", "2028", "2029"],
+        tickangle=0,
+        title="Year"
+    )
+
+    fig.update_yaxes(title="Total Revenue ($)")
+
+    st.plotly_chart(fig, use_container_width=True)
 
     st.metric(
         label="Total Revenue",
