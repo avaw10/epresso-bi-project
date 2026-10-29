@@ -130,6 +130,14 @@ with tab_dash:
     categories_df = dashboard_table("Categories", categories_file, "Categories")
     stores_df = dashboard_table("Stores", stores_file, "Stores")
 
+    survey_file = DEFAULT_FILES["Survey Results"]
+
+    survey_df = cached_load(
+        survey_file.read_bytes(),
+        survey_file.name,
+        "Survey Results"
+    )
+
     for source_df, column, table_name in (
         (products_df, "Product", "Products table"),
         (categories_df, "Category", "Categories table"),
