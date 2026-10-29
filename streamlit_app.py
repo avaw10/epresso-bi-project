@@ -83,8 +83,8 @@ with tab_data:
     profile = analytics.profile_table(df)
     if selected_table == "Survey Results":
         duplicate_store_year = df.duplicated(
-        subset=["Store ID", "Year"]
-    ).sum()
+            subset=["Store ID", "Year"]
+        ).sum()
 
     st.write(
         "Duplicate Store ID + Year combinations:",
