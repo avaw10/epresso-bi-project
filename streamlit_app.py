@@ -137,6 +137,8 @@ with tab_dash:
         survey_file.name,
         "Survey Results"
     )
+    st.write("Survey column names:", survey_df.columns.tolist())
+    st.dataframe(survey_df.head(10))
 
     for source_df, column, table_name in (
         (products_df, "Product", "Products table"),
