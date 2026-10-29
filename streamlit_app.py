@@ -187,15 +187,12 @@ with tab_dash:
 
     st.dataframe(merged_df.head(20))
 
-    if selected_table != "Sales":
-        st.info("Select the Sales dataset to view revenue.")
-    else:
-        total_revenue = analytics.calculate_total_revenue(df)
+    total_revenue = analytics.calculate_total_revenue(merged_df)
 
-        st.metric(
-            label="Total Revenue",
-            value=f"${total_revenue:,.2f}"
-        )
+    st.metric(
+        label="Total Revenue",
+        value=f"${total_revenue:,.2f}"
+    )
 with tab_assistant:
     st.caption('Mode: rules-based starter. Describe what you actually built here.')
     st.session_state.setdefault('n_questions', 0)
