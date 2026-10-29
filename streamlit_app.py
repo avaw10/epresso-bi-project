@@ -317,6 +317,15 @@ with tab_dash:
         ["Store ID", "Year"]
     ].drop_duplicates()
 
+    # Make sure Year is a number in both datasets
+    survey_df["Year"] = pd.to_numeric(
+        survey_df["Year"], errors="coerce"
+    )
+
+    active_store_years["Year"] = pd.to_numeric(
+        active_store_years["Year"], errors="coerce"
+    )
+    
     # Match survey results to those stores and years
     filtered_survey = survey_df.merge(
         active_store_years,
