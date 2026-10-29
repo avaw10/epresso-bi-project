@@ -190,15 +190,33 @@ with tab_dash:
 
     st.subheader("Merged Data: Sales + Products + Categories + Stores")
 
-    merged_df["Year"] = pd.to_datetime(merged_df["Date"]).dt.year
+     # Create a month column from the sales dates
+    merged_df["Month"] = pd.to_datetime(merged_df["Date"]).dt.month
 
-    selected_years = st.multiselect(
-        "Filter by Year",
-        options=sorted(merged_df["Year"].dropna().unique()),
-        default=sorted(merged_df["Year"].dropna().unique())
+    # Month names
+    month_names = [
+        "January", "February", "March", "April",
+        "May", "June", "July", "August",
+        "September", "October", "November", "December"
+    ]
+
+    # Create the month filter
+    selected_months = st.multiselect(
+        "Filter by Month",
+        options=month_names,
+        default=month_names
     )
 
-    merged_df = merged_df[merged_df["Year"].isin(selected_years)]
+    # Convert selected month names into month numbers
+    selected_month_numbers = [
+        month_names.index(month) + 1
+        for month in selected_months
+    ]
+
+    # Filter the data
+    merged_df = merged_df[
+        merged_df["Month"].isin(selected_month_numbers)
+    ]
 
     st.dataframe(merged_df.head(20))
 
