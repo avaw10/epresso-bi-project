@@ -243,12 +243,53 @@ with tab_dash:
         y="Market",
         orientation="h",
         labels={
-            "Revenue": "Total Revenue ($)",
+            "Revenue": "Total Revenue",
             "Market": "Store Type"
         }
     )
 
     st.plotly_chart(fig_store, use_container_width=True)
+
+    # Extract the month from the Date column
+    merged_df["Month"] = merged_df["Date"].dt.month
+
+    # Calculate revenue by month
+    revenue_by_month = (
+        merged_df.groupby("Month")["Revenue"]
+        .sum()
+        .reset_index()
+        .sort_values("Month")
+    )
+
+    # Calculate each month's percentage of total revenue
+    revenue_by_month["Percentage"] = (
+        revenue_by_month["Revenue"] / revenue_by_month["Revenue"].sum() * 100
+    )
+
+    # Create the chart
+    fig_month = px.bar(
+        revenue_by_month,
+        x="Month",
+        y="Percentage",
+        title="Percentage of Revenue per Month",
+        labels={
+            "Month": "Month",
+            "Percentage": "Percentage of Total Revenue (%)"
+        }
+    )
+
+    # Display months as 1 through 12
+    fig_month.update_xaxes(
+        tickmode="array",
+        tickvals=list(range(1, 13)),
+        ticktext=[
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        ],
+        tickangle=0
+    )
+
+    st.plotly_chart(fig_month, use_container_width=True)
 
 with tab_assistant:
     st.caption('Mode: rules-based starter. Describe what you actually built here.')
