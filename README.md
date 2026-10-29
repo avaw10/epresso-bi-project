@@ -20,10 +20,11 @@ Products | Products in Support Sales | Each row represents a product identified 
 Categories | Categories in Support Sales | Each row represents the different type of category by their name and ID | Category ID | 5 | No
 Stores | Stores | Each row represents a store and its associated information | ID | 21 | No
 Survey Results | Survey Results in Support Survey | Each row represents a survey and which store and survey ID it belonged to | Survey ID | 107 | No
-
+## Merge Checks
 Merge | Rows Before | Rows After | Revenue Sum Before | Revenue Sum After | Explanation
 Sales and Products by Product ID | 25200 | 25200 | 42,174,440.00 | 42,174,440.00| The two tables were left merged by the product ID
 Sales and Categories by Category ID | 25200 | 25200 | 42,174,440.00 | 42,174,440.00| The two tables were left merged by the category ID
+Sales and Stores by Store ID | 25200 | 25200 | 42,174,440.00 | 42,174,440.00| The two tables were left merged by the Sales Store ID
 
 ## Metric definitions
 _What "revenue" means here, and anything it does not mean._
