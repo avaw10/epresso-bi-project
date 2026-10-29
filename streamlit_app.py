@@ -326,6 +326,12 @@ with tab_dash:
         active_store_years["Year"], errors="coerce"
     )
     
+    st.write("Survey Store IDs:", survey_df["Store ID"].unique())
+    st.write("Sales Store IDs:", active_store_years["Store ID"].unique())
+
+    st.write("Survey Years:", survey_df["Year"].unique())
+    st.write("Sales Years:", active_store_years["Year"].unique())
+
     # Match survey results to those stores and years
     filtered_survey = survey_df.merge(
         active_store_years,
