@@ -348,6 +348,43 @@ with tab_dash:
         else "No survey data"
     )
 
+        # -----------------------------------
+    # CUSTOMER SATISFACTION BY MARKET
+    # -----------------------------------
+
+    # Connect survey responses to store information
+    survey_with_stores = filtered_survey.merge(
+        stores_df[["ID", "Market"]],
+        left_on="Store ID",
+        right_on="ID",
+        how="left"
+    )
+
+    # Calculate average satisfaction for each market
+    satisfaction_by_market = (
+        survey_with_stores.groupby("Market")["Satisfaction"]
+        .mean()
+        .reset_index()
+        .sort_values("Satisfaction", ascending=True)
+    )
+
+    # Create horizontal bar chart
+    fig_satisfaction = px.bar(
+        satisfaction_by_market,
+        x="Satisfaction",
+        y="Market",
+        orientation="h",
+        title="Average Customer Satisfaction by Market",
+        labels={
+            "Satisfaction": "Average Satisfaction (1–5)",
+            "Market": "Market"
+        }
+    )
+
+    fig_satisfaction.update_xaxes(range=[0, 5])
+
+    st.plotly_chart(fig_satisfaction, width="stretch")
+
     st.dataframe(merged_df.head(20))
 
     st.subheader("Total Revenue by Year")
