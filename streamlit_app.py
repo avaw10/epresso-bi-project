@@ -178,9 +178,7 @@ with tab_dash:
     st.write("Blank Category ID keys in Categories:", categories_df["Category ID"].isna().sum())
     st.write("Blank ID keys in Stores:", stores_df["ID"].isna().sum())
     st.write("Missing product names:", merged_df["Product"].isna().sum())
-
     st.write("Missing category names:", merged_df["Category"].isna().sum())
-
     st.write("Missing store matches:", merged_df["ID"].isna().sum())
 
     st.subheader("Merged Data: Sales + Products + Categories + Stores")
@@ -194,14 +192,13 @@ with tab_dash:
         value=f"${total_revenue:,.2f}"
     )
 
-    st.subheader("Total Revenue by Year")
-    # Convert the Date column into a date format
-merged_df["Date"] = pd.to_datetime(merged_df["Date"])
+st.subheader("Total Revenue by Year")
 
-# Extract the year from each date
+# Convert dates and extract the year
+merged_df["Date"] = pd.to_datetime(merged_df["Date"])
 merged_df["Year"] = merged_df["Date"].dt.year
 
-# Calculate total revenue for each year
+# Calculate revenue by year
 revenue_by_year = (
     merged_df.groupby("Year")["Revenue"]
     .sum()
@@ -209,18 +206,15 @@ revenue_by_year = (
     .sort_values("Year")
 )
 
-# Display the line chart
+# Create ONE line chart
 st.line_chart(
     revenue_by_year,
     x="Year",
-    y="Revenue"
+    y="Revenue",
+    x_label="Year",
+    y_label="Total Revenue"
 )
 
-st.bar_chart(
-    revenue_by_year,
-    x="Year",
-    y="Revenue"
-)
 with tab_assistant:
     st.caption('Mode: rules-based starter. Describe what you actually built here.')
     st.session_state.setdefault('n_questions', 0)
