@@ -193,3 +193,16 @@ def merge_sales_categories(sales_df, categories_df):
         validate="many_to_one"
     )
     return merged_df
+
+def merge_sales_stores(sales_df, stores_df):
+    """Merge sales with store information using Store ID."""
+
+    merged_df = sales_df.merge(
+        stores_df,
+        left_on="Store ID",
+        right_on="ID",
+        how="left",
+        validate="many_to_one"
+    )
+
+    return merged_df

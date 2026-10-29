@@ -99,6 +99,7 @@ with tab_dash:
     sales_file = DEFAULT_FILES["Sales"]
     products_file = DEFAULT_FILES["Products"]
     categories_file = DEFAULT_FILES["Categories"]
+    stores_file = DEFAULT_FILES["Stores"]
 
     sales_df = cached_load(
         sales_file.read_bytes(),
@@ -115,6 +116,12 @@ with tab_dash:
     categories_file.read_bytes(),
     categories_file.name,
     "Categories"
+    )
+
+    stores_df = cached_load(
+    stores_file.read_bytes(),
+    stores_file.name,
+    "Stores"
     )
 
     merged_df = analytics.merge_sales_products(
@@ -173,7 +180,40 @@ with tab_dash:
         st.error("Categories merge failed. Stop and investigate.")
         st.stop()
 
-    st.subheader("Merged Data: Sales + Products + Categories")
+            # STEP 1: Record values BEFORE merging Stores
+    rows_before_stores = len(merged_df)
+    revenue_before_stores = analytics.calculate_total_revenue(merged_df)
+
+    # STEP 2: Merge Stores into our existing dataset
+    merged_df = analytics.merge_sales_stores(
+        merged_df,
+        stores_df
+    )
+
+    # STEP 3: Record values AFTER merging Stores
+    rows_after_stores = len(merged_df)
+    revenue_after_stores = analytics.calculate_total_revenue(merged_df)
+
+    # STEP 4: Display validation results
+    st.subheader("Merge Validation: Sales + Stores")
+
+    st.write("Rows before:", rows_before_stores)
+    st.write("Rows after:", rows_after_stores)
+
+    st.write("Revenue before:", f"${revenue_before_stores:,.2f}")
+    st.write("Revenue after:", f"${revenue_after_stores:,.2f}")
+
+    if (
+        rows_before_stores == rows_after_stores
+        and revenue_before_stores == revenue_after_stores
+    ):
+        st.success("Stores merge passed!")
+    else:
+        st.error("Stores merge failed. Stop and investigate.")
+        st.stop()
+
+    st.subheader("Merged Data: Sales + Products + Categories + Stores")
+
 
     st.dataframe(merged_df.head(20))
 
