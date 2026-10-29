@@ -187,33 +187,33 @@ with tab_dash:
 
     total_revenue = analytics.calculate_total_revenue(merged_df)
 
+    st.subheader("Total Revenue by Year")
+
+    # Convert dates and extract the year
+    merged_df["Date"] = pd.to_datetime(merged_df["Date"])
+    merged_df["Year"] = merged_df["Date"].dt.year
+
+    # Calculate revenue by year
+    revenue_by_year = (
+        merged_df.groupby("Year")["Revenue"]
+        .sum()
+        .reset_index()
+        .sort_values("Year")
+    )
+
+    # Create ONE line chart
+    st.line_chart(
+        revenue_by_year,
+        x="Year",
+        y="Revenue",
+        x_label="Year",
+        y_label="Total Revenue"
+    )
+
     st.metric(
         label="Total Revenue",
         value=f"${total_revenue:,.2f}"
     )
-
-st.subheader("Total Revenue by Year")
-
-# Convert dates and extract the year
-merged_df["Date"] = pd.to_datetime(merged_df["Date"])
-merged_df["Year"] = merged_df["Date"].dt.year
-
-# Calculate revenue by year
-revenue_by_year = (
-    merged_df.groupby("Year")["Revenue"]
-    .sum()
-    .reset_index()
-    .sort_values("Year")
-)
-
-# Create ONE line chart
-st.line_chart(
-    revenue_by_year,
-    x="Year",
-    y="Revenue",
-    x_label="Year",
-    y_label="Total Revenue"
-)
 
 with tab_assistant:
     st.caption('Mode: rules-based starter. Describe what you actually built here.')
