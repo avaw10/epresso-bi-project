@@ -21,6 +21,8 @@ def load_table(file_bytes: bytes, filename: str, sheet_name=0) -> pd.DataFrame:
     name = filename.lower()
     buffer = io.BytesIO(file_bytes)
     if name.endswith(EXCEL_EXT):
+        if sheet_name == "Survey Results":
+            return pd.read_excel(buffer, sheet_name=sheet_name, header=1)
         return pd.read_excel(buffer, sheet_name=sheet_name)
     if name.endswith(TEXT_EXT):
         return pd.read_csv(buffer, sep=None, engine='python')  # sniffs the delimiter
