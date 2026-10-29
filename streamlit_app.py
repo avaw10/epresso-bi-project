@@ -86,10 +86,10 @@ with tab_data:
             subset=["Store ID", "Year"]
         ).sum()
 
-    st.write(
-        "Duplicate Store ID + Year combinations:",
-        duplicate_store_year
-    )
+        st.write(
+            "Duplicate Store ID + Year combinations:",
+            duplicate_store_year
+        )
     c1, c2, c3 = st.columns(3)
     c1.metric('Rows', f"{profile['rows']:,}")
     c2.metric('Columns', profile['columns'])
