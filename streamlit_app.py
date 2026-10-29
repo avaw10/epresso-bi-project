@@ -1,5 +1,6 @@
 """Main app. Checkpoint 0: loads a file and shows a profile.
 Keep calculations in analytics.py and the assistant in agent.py."""
+from pathlib import Path
 import streamlit as st
 
 import agent
@@ -7,6 +8,15 @@ import analytics
 
 MAX_QUESTIONS = 15  # per-session limit for the assistant
 
+DATA_FOLDER = Path(__file__).resolve().parent / "data"
+
+DEFAULT_FILES = {
+    "Sales": DATA_FOLDER / "Support Sales.xlsx",
+    "Products": DATA_FOLDER / "Support Sales.xlsx",
+    "Categories": DATA_FOLDER / "Support Sales.xlsx",
+    "Stores": DATA_FOLDER / "Support_EX_B_Stores (3).csv",
+    "Survey Results": DATA_FOLDER / "Support_EX_B_Survey (1).xlsx",
+}
 st.set_page_config(page_title='E-Presso Dashboard Analyst', layout='wide')
 st.title('E-Presso Dashboard Analyst')
 st.caption('Upload a file to explore the data and ask questions.')
@@ -20,20 +30,51 @@ def cached_load(file_bytes: bytes, filename: str, sheet_name):
 
 
 with st.sidebar:
-    st.header('Data')
-    uploaded = st.file_uploader('Upload a CSV or Excel file', type=['csv', 'txt', 'tsv', 'xlsx', 'xls'])
-    sheet = 0
-    if uploaded is not None and uploaded.name.lower().endswith(analytics.EXCEL_EXT):
-        sheet = st.selectbox('Sheet', analytics.excel_sheet_names(uploaded.getvalue()))
+    st.header("Data")
 
-if uploaded is None:
-    st.info('Upload a file in the sidebar to begin.')
-    st.stop()
+    selected_table = st.selectbox(
+        "Select a dataset",
+        list(DEFAULT_FILES.keys())
+    )
+
+    uploaded = st.file_uploader(
+        "Upload a replacement CSV or Excel file (optional)",
+        type=["csv", "txt", "tsv", "xlsx", "xls"],
+        key=f"upload_{selected_table}"
+    )
 
 try:
-    df = cached_load(uploaded.getvalue(), uploaded.name, sheet)
-except Exception as exc:  # show a readable message instead of a traceback
-    st.error(f'Could not read that file: {exc}')
+    if uploaded is not None:
+        file_bytes = uploaded.getvalue()
+        filename = uploaded.name
+
+        if filename.lower().endswith(analytics.EXCEL_EXT):
+            sheets = analytics.excel_sheet_names(file_bytes)
+            sheet = st.sidebar.selectbox(
+                "Replacement file sheet",
+                sheets,
+                index=sheets.index(selected_table)
+                if selected_table in sheets else 0
+            )
+        else:
+            sheet = 0
+
+    else:
+        file_path = DEFAULT_FILES[selected_table]
+        file_bytes = file_path.read_bytes()
+        filename = file_path.name
+
+        if selected_table in ["Sales", "Products", "Categories"]:
+            sheet = selected_table
+        elif selected_table == "Survey Results":
+            sheet = "Survey Results"
+        else:
+            sheet = 0
+
+    df = cached_load(file_bytes, filename, sheet)
+
+except Exception as exc:
+    st.error(f"Could not load {selected_table}: {exc}")
     st.stop()
 
 tab_data, tab_dash, tab_assistant = st.tabs(['Data and profile', 'Dashboard', 'Assistant'])
@@ -53,9 +94,17 @@ with tab_data:
     right.dataframe(profile['dtypes'])
 
 with tab_dash:
-    st.info('TODO: KPIs, filters, and at least three charts go here. '
-            'Calculate everything from the loaded data. Never hardcode results.')
+    st.header("E-Presso Business Dashboard")
 
+    if selected_table != "Sales":
+        st.info("Select the Sales dataset to view revenue.")
+    else:
+        total_revenue = analytics.calculate_total_revenue(df)
+
+        st.metric(
+            label="Total Revenue",
+            value=f"${total_revenue:,.2f}"
+        )
 with tab_assistant:
     st.caption('Mode: rules-based starter. Describe what you actually built here.')
     st.session_state.setdefault('n_questions', 0)
