@@ -137,8 +137,6 @@ with tab_dash:
         survey_file.name,
         "Survey Results"
     )
-    st.write("Survey column names:", survey_df.columns.tolist())
-    st.dataframe(survey_df.head(10))
 
     for source_df, column, table_name in (
         (products_df, "Product", "Products table"),
@@ -319,21 +317,15 @@ with tab_dash:
         ["Store ID", "Year"]
     ].drop_duplicates()
 
-    # Make sure Year is a number in both datasets
-    st.write("Original Survey Years:", survey_df["Year"].unique())
+       # Remove the "Y" from survey years (Y2025 becomes 2025)
     survey_df["Year"] = pd.to_numeric(
-        survey_df["Year"], errors="coerce"
+        survey_df["Year"].astype(str).str.replace("Y", "", regex=False),
+        errors="coerce"
     )
 
     active_store_years["Year"] = pd.to_numeric(
         active_store_years["Year"], errors="coerce"
     )
-
-    st.write("Survey Store IDs:", survey_df["Store ID"].unique())
-    st.write("Sales Store IDs:", active_store_years["Store ID"].unique())
-
-    st.write("Survey Years:", survey_df["Year"].unique())
-    st.write("Sales Years:", active_store_years["Year"].unique())
 
     # Match survey results to those stores and years
     filtered_survey = survey_df.merge(
