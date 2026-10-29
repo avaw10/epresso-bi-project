@@ -169,6 +169,12 @@ with tab_dash:
         st.stop()
     display_merge_report("Merge Validation: Sales + Stores", stores_report)
 
+    total_revenue = analytics.calculate_total_revenue(merged_df)
+    st.metric(
+                label="Total Revenue",
+                value=f"${total_revenue:,.2f}"
+            )
+
     st.subheader("Merge Quality Checks")
 
     st.write(
@@ -185,8 +191,6 @@ with tab_dash:
     st.subheader("Merged Data: Sales + Products + Categories + Stores")
 
     st.dataframe(merged_df.head(20))
-
-    total_revenue = analytics.calculate_total_revenue(merged_df)
 
     st.subheader("Total Revenue by Year")
 
@@ -220,14 +224,9 @@ with tab_dash:
         title="Year"
     )
 
-    fig.update_yaxes(title="Total Revenue ($)")
+    fig.update_yaxes(title="Total Revenue")
 
     st.plotly_chart(fig, use_container_width=True)
-
-    st.metric(
-        label="Total Revenue",
-        value=f"${total_revenue:,.2f}"
-    )
 
 with tab_assistant:
     st.caption('Mode: rules-based starter. Describe what you actually built here.')
