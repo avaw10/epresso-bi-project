@@ -195,9 +195,26 @@ with tab_dash:
     )
 
     st.subheader("Total Revenue by Year")
-    st.write("Available columns:", merged_df.columns.tolist())
-    st.write("Available columns:", merged_df.columns.tolist())
-    st.stop()
+    # Convert the Date column into a date format
+merged_df["Date"] = pd.to_datetime(merged_df["Date"])
+
+# Extract the year from each date
+merged_df["Year"] = merged_df["Date"].dt.year
+
+# Calculate total revenue for each year
+revenue_by_year = (
+    merged_df.groupby("Year")["Revenue"]
+    .sum()
+    .reset_index()
+    .sort_values("Year")
+)
+
+# Display the line chart
+st.line_chart(
+    revenue_by_year,
+    x="Year",
+    y="Revenue"
+)
 
 st.bar_chart(
     revenue_by_year,
