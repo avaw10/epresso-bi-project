@@ -192,15 +192,12 @@ with tab_dash:
 
     merged_df["Year"] = pd.to_datetime(merged_df["Date"]).dt.year
 
-    selected_years = st.multiselect(
-        "Filter by Year",
-        options=sorted(merged_df["Year"].dropna().unique()),
-        default=sorted(merged_df["Year"].dropna().unique())
-    )
+    # -----------------------------------
+    # DASHBOARD FILTERS
+    # -----------------------------------
 
-    merged_df = merged_df[merged_df["Year"].isin(selected_years)]
-
-     # Create a month column from the sales dates
+    # Create Year and Month columns
+    merged_df["Year"] = pd.to_datetime(merged_df["Date"]).dt.year
     merged_df["Month"] = pd.to_datetime(merged_df["Date"]).dt.month
 
     # Month names
@@ -210,59 +207,98 @@ with tab_dash:
         "September", "October", "November", "December"
     ]
 
-    # Create the month filter
-    selected_months = st.multiselect(
-        "Filter by Month",
-        options=month_names,
-        default=month_names
-    )
+    # Arrange filters in three columns
+    col1, col2, col3 = st.columns(3)
 
-    # Convert selected month names into month numbers
-    selected_month_numbers = [
-        month_names.index(month) + 1
-        for month in selected_months
-    ]
+    with col1:
+        selected_years = st.multiselect(
+            "Year",
+            options=sorted(merged_df["Year"].dropna().unique()),
+            default=[],
+            placeholder="All Years"
+        )
 
-    # Filter the data
-    merged_df = merged_df[
-        merged_df["Month"].isin(selected_month_numbers)
-    ]
+        selected_store_types = st.multiselect(
+            "Store Type",
+            options=sorted(merged_df["StoreType"].dropna().unique()),
+            default=[],
+            placeholder="All Store Types"
+        )
 
-    # Category filter
-    selected_categories = st.multiselect(
-        "Filter by Category",
-        options=sorted(merged_df["Category"].dropna().unique()),
-        default=sorted(merged_df["Category"].dropna().unique())
-    )
+    with col2:
+        selected_months = st.multiselect(
+            "Month",
+            options=month_names,
+            default=[],
+            placeholder="All Months"
+        )
 
-    # Store Type filter
-    selected_store_types = st.multiselect(
-        "Filter by Store Type",
-        options=sorted(merged_df["StoreType"].dropna().unique()),
-        default=sorted(merged_df["StoreType"].dropna().unique())
-    )
+        selected_markets = st.multiselect(
+            "Market",
+            options=sorted(merged_df["Market"].dropna().unique()),
+            default=[],
+            placeholder="All Markets"
+        )
 
-    # Market filter
-    selected_markets = st.multiselect(
-        "Filter by Market",
-        options=sorted(merged_df["Market"].dropna().unique()),
-        default=sorted(merged_df["Market"].dropna().unique())
-    )
+    with col3:
+        selected_categories = st.multiselect(
+            "Category",
+            options=sorted(merged_df["Category"].dropna().unique()),
+            default=[],
+            placeholder="All Categories"
+        )
 
-    # State filter
-    selected_states = st.multiselect(
-        "Filter by State",
-        options=sorted(merged_df["State"].dropna().unique()),
-        default=sorted(merged_df["State"].dropna().unique())
-    )
+        selected_states = st.multiselect(
+            "State",
+            options=sorted(merged_df["State"].dropna().unique()),
+            default=[],
+            placeholder="All States"
+        )
 
-    # Apply all four filters
-    merged_df = merged_df[
-        merged_df["Category"].isin(selected_categories)
-        & merged_df["StoreType"].isin(selected_store_types)
-        & merged_df["Market"].isin(selected_markets)
-        & merged_df["State"].isin(selected_states)
-    ]
+    # -----------------------------------
+    # APPLY FILTERS
+    # -----------------------------------
+
+    # Year
+    if selected_years:
+        merged_df = merged_df[
+            merged_df["Year"].isin(selected_years)
+        ]
+
+    # Month
+    if selected_months:
+        selected_month_numbers = [
+            month_names.index(month) + 1
+            for month in selected_months
+        ]
+
+        merged_df = merged_df[
+            merged_df["Month"].isin(selected_month_numbers)
+        ]
+
+    # Category
+    if selected_categories:
+        merged_df = merged_df[
+            merged_df["Category"].isin(selected_categories)
+        ]
+
+    # Store Type
+    if selected_store_types:
+        merged_df = merged_df[
+            merged_df["StoreType"].isin(selected_store_types)
+        ]
+
+    # Market
+    if selected_markets:
+        merged_df = merged_df[
+            merged_df["Market"].isin(selected_markets)
+        ]
+
+    # State
+    if selected_states:
+        merged_df = merged_df[
+            merged_df["State"].isin(selected_states)
+        ]
 
     st.dataframe(merged_df.head(20))
 
