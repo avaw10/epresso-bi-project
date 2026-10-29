@@ -200,7 +200,8 @@ with tab_dash:
         .reset_index()
         .sort_values("Year")
     )
-
+    revenue_by_year["Year"] = revenue_by_year["Year"].astype(str)
+    
     # Create ONE line chart
     st.line_chart(
         revenue_by_year,
