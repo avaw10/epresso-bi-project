@@ -171,3 +171,15 @@ def calculate_total_revenue(sales_df):
         )
 
     return revenue.sum()
+
+def merge_sales_products(sales_df, products_df):
+    """Merge sales with product names using Product ID."""
+
+    merged_df = sales_df.merge(
+        products_df,
+        on="Product ID",
+        how="left",
+        validate="many_to_one"
+    )
+
+    return merged_df

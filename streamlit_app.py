@@ -96,6 +96,48 @@ with tab_data:
 with tab_dash:
     st.header("E-Presso Business Dashboard")
 
+    sales_file = DEFAULT_FILES["Sales"]
+    products_file = DEFAULT_FILES["Products"]
+
+    sales_df = cached_load(
+        sales_file.read_bytes(),
+        sales_file.name,
+        "Sales"
+    )
+
+    products_df = cached_load(
+        products_file.read_bytes(),
+        products_file.name,
+        "Products"
+    )
+
+    merged_df = analytics.merge_sales_products(
+        sales_df,
+        products_df
+    )
+    st.subheader("Merged Data: Sales + Products")
+
+    st.dataframe(merged_df.head(20))
+
+    rows_before = len(sales_df)
+    rows_after = len(merged_df)
+
+    revenue_before = analytics.calculate_total_revenue(sales_df)
+    revenue_after = analytics.calculate_total_revenue(merged_df)
+
+    st.subheader("Merge Validation: Sales + Products")
+
+    st.write("Rows before merge:", rows_before)
+    st.write("Rows after merge:", rows_after)
+
+    st.write("Revenue before merge:", f"${revenue_before:,.2f}")
+    st.write("Revenue after merge:", f"${revenue_after:,.2f}")
+
+    if rows_before == rows_after and revenue_before == revenue_after:
+        st.success("Merge successful! Row count and revenue match.")
+    else:
+        st.error("Merge validation failed. Investigate before continuing.")
+
     if selected_table != "Sales":
         st.info("Select the Sales dataset to view revenue.")
     else:
