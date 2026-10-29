@@ -212,8 +212,15 @@ with tab_dash:
         st.error("Stores merge failed. Stop and investigate.")
         st.stop()
 
-    st.subheader("Merged Data: Sales + Products + Categories + Stores")
+    st.subheader("Merge Quality Checks")
 
+    st.write("Missing product names:", merged_df["Product"].isna().sum())
+
+    st.write("Missing category names:", merged_df["Category"].isna().sum())
+
+    st.write("Missing store matches:", merged_df["ID"].isna().sum())
+
+    st.subheader("Merged Data: Sales + Products + Categories + Stores")
 
     st.dataframe(merged_df.head(20))
 
