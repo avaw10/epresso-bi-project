@@ -308,6 +308,36 @@ with tab_dash:
             merged_df["State"].isin(selected_states)
         ]
 
+         # -----------------------------------
+    # CUSTOMER SATISFACTION
+    # -----------------------------------
+
+    # Find the stores and years included in the filtered sales data
+    active_store_years = merged_df[
+        ["Store ID", "Year"]
+    ].drop_duplicates()
+
+    # Match survey results to those stores and years
+    filtered_survey = survey_df.merge(
+        active_store_years,
+        on=["Store ID", "Year"],
+        how="inner"
+    )
+
+    # Calculate average customer satisfaction
+    average_satisfaction = pd.to_numeric(
+        filtered_survey["Satisfaction"],
+        errors="coerce"
+    ).mean()
+
+    # Display the metric
+    st.metric(
+        "Average Customer Satisfaction",
+        f"{average_satisfaction:.2f} / 5"
+        if pd.notna(average_satisfaction)
+        else "No survey data"
+    )
+
     st.dataframe(merged_df.head(20))
 
     st.subheader("Total Revenue by Year")
