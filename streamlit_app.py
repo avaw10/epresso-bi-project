@@ -318,6 +318,7 @@ with tab_dash:
     ].drop_duplicates()
 
     # Make sure Year is a number in both datasets
+    st.write("Original Survey Years:", survey_df["Year"].unique())
     survey_df["Year"] = pd.to_numeric(
         survey_df["Year"], errors="coerce"
     )
@@ -325,7 +326,7 @@ with tab_dash:
     active_store_years["Year"] = pd.to_numeric(
         active_store_years["Year"], errors="coerce"
     )
-    
+
     st.write("Survey Store IDs:", survey_df["Store ID"].unique())
     st.write("Sales Store IDs:", active_store_years["Store ID"].unique())
 
