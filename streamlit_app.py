@@ -193,6 +193,21 @@ with tab_dash:
         label="Total Revenue",
         value=f"${total_revenue:,.2f}"
     )
+
+    st.subheader("Total Revenue by Year")
+    st.write("Available columns:", merged_df.columns.tolist())
+    revenue_by_year = (
+    merged_df.groupby("Year")["Revenue"]
+    .sum()
+    .reset_index()
+    .sort_values("Year")
+    )
+
+st.bar_chart(
+    revenue_by_year,
+    x="Year",
+    y="Revenue"
+)
 with tab_assistant:
     st.caption('Mode: rules-based starter. Describe what you actually built here.')
     st.session_state.setdefault('n_questions', 0)
