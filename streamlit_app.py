@@ -360,11 +360,12 @@ with tab_dash:
         how="left"
     )
 
-    # Calculate average satisfaction for each market
+        # Calculate average satisfaction by market
     satisfaction_by_market = (
         survey_with_stores.groupby("Market")["Satisfaction"]
         .mean()
         .reset_index()
+        .dropna(subset=["Satisfaction"])
         .sort_values("Satisfaction", ascending=True)
     )
 
