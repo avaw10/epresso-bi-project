@@ -288,3 +288,14 @@ def calculate_average_satisfaction(filtered_survey):
         errors="coerce"
     )
     return satisfaction.mean()
+
+def calculate_satisfaction_by_market(survey_with_stores):
+    """Calculate average customer satisfaction for each market."""
+    satisfaction_by_market = (
+        survey_with_stores.groupby("Market")["Satisfaction"]
+        .mean()
+        .reset_index()
+        .dropna(subset=["Satisfaction"])
+        .sort_values("Satisfaction", ascending=True)
+    )
+    return satisfaction_by_market

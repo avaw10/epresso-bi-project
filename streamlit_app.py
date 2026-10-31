@@ -453,13 +453,8 @@ with tab_dash:
     )
 
         # Calculate average satisfaction by market
-    satisfaction_by_market = (
-        survey_with_stores.groupby("Market")["Satisfaction"]
-        .mean()
-        .reset_index()
-        .dropna(subset=["Satisfaction"])
-        .sort_values("Satisfaction", ascending=True)
-    )
+    satisfaction_by_market = analytics.calculate_satisfaction_by_market(survey_with_stores)
+
 
     # Create horizontal bar chart
     chart_col1, chart_col2 = st.columns(2)
