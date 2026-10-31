@@ -299,3 +299,35 @@ def calculate_satisfaction_by_market(survey_with_stores):
         .sort_values("Satisfaction", ascending=True)
     )
     return satisfaction_by_market
+
+
+def filter_survey_by_sales(survey_df, filtered_sales_df):
+    """Match survey responses to stores and years in filtered sales."""
+
+    # Find unique store-year combinations in filtered sales
+    active_store_years = filtered_sales_df[
+        ["Store ID", "Year"]
+    ].drop_duplicates().copy()
+
+    # Make a copy so we don't modify the original survey
+    survey = survey_df.copy()
+
+    # Convert survey years (e.g., Y2025) to numbers
+    survey["Year"] = pd.to_numeric(
+        survey["Year"].astype(str).str.replace("Y", "", regex=False),
+        errors="coerce"
+    )
+
+    active_store_years["Year"] = pd.to_numeric(
+        active_store_years["Year"],
+        errors="coerce"
+    )
+
+    # Match survey responses to the selected stores and years
+    filtered_survey = survey.merge(
+        active_store_years,
+        on=["Store ID", "Year"],
+        how="inner"
+    )
+
+    return filtered_survey

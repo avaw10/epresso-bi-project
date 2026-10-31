@@ -406,25 +406,8 @@ with tab_dash:
     # -----------------------------------
 
     # Find the stores and years included in the filtered sales data
-    active_store_years = merged_df[
-        ["Store ID", "Year"]
-    ].drop_duplicates()
-
-       # Remove the "Y" from survey years (Y2025 becomes 2025)
-    survey_df["Year"] = pd.to_numeric(
-        survey_df["Year"].astype(str).str.replace("Y", "", regex=False),
-        errors="coerce"
-    )
-
-    active_store_years["Year"] = pd.to_numeric(
-        active_store_years["Year"], errors="coerce"
-    )
-
-    # Match survey results to those stores and years
-    filtered_survey = survey_df.merge(
-        active_store_years,
-        on=["Store ID", "Year"],
-        how="inner"
+    filtered_survey = analytics.filter_survey_by_sales(
+        survey_df, merged_df
     )
 
     # Calculate average customer satisfaction
