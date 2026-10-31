@@ -280,3 +280,11 @@ def calculate_monthly_revenue_percentage(df):
     )
 
     return revenue_by_month
+
+def calculate_average_satisfaction(filtered_survey):
+    """Calculate average satisfaction from survey responses."""
+    satisfaction = pd.to_numeric(
+        filtered_survey["Satisfaction"],
+        errors="coerce"
+    )
+    return satisfaction.mean()

@@ -428,10 +428,8 @@ with tab_dash:
     )
 
     # Calculate average customer satisfaction
-    average_satisfaction = pd.to_numeric(
-        filtered_survey["Satisfaction"],
-        errors="coerce"
-    ).mean()
+    average_satisfaction = analytics.calculate_average_satisfaction(filtered_survey)
+
 
     # Display the metric
     with satisfaction_col:
