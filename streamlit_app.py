@@ -20,7 +20,7 @@ DEFAULT_FILES = {
 }
 st.set_page_config(page_title='E-Presso Dashboard Analyst', layout='wide')
 st.title('E-Presso Dashboard Analyst')
-st.caption('Upload a file to explore the data and ask questions.')
+st.caption('Upload a file or use the already uploaded files to explore the data and ask questions.')
 
 
 @st.cache_data(show_spinner=False)
@@ -94,22 +94,126 @@ except Exception as exc:
 
 tab_data, tab_dash, tab_assistant = st.tabs(['Data and profile', 'Dashboard', 'Assistant'])
 
+
 with tab_data:
     profile = analytics.profile_table(df)
+    st.subheader("Dataset Overview")
     c1, c2, c3 = st.columns(3)
-    c1.metric('Rows', f"{profile['rows']:,}")
-    c2.metric('Columns', profile['columns'])
-    c3.metric('Duplicate rows', profile['duplicate_rows'])
-    st.subheader('Preview')
+    c1.metric("Rows", f"{profile['rows']:,}")
+    c2.metric("Columns", profile["columns"])
+    c3.metric("Duplicate Rows", profile["duplicate_rows"])
+
+    st.subheader("Data Quality Checks")
+
+    if selected_table == "Sales":
+        st.metric(
+            "Duplicate Sales IDs",
+            int(df["Sales ID"].duplicated().sum())
+        )
+
+        products_df = cached_load(
+            DEFAULT_FILES["Products"].read_bytes(),
+            DEFAULT_FILES["Products"].name,
+            "Products"
+        )
+        categories_df = cached_load(
+            DEFAULT_FILES["Categories"].read_bytes(),
+            DEFAULT_FILES["Categories"].name,
+            "Categories"
+        )
+        stores_df = cached_load(
+            DEFAULT_FILES["Stores"].read_bytes(),
+            DEFAULT_FILES["Stores"].name,
+            0
+        )
+
+        st.metric(
+            "Sales with Invalid Product IDs",
+            int((~df["Product ID"].isin(products_df["Product ID"])).sum())
+        )
+        st.metric(
+            "Sales with Invalid Category IDs",
+            int((~df["Category ID"].isin(categories_df["Category ID"])).sum())
+        )
+        st.metric(
+            "Sales with Invalid Store IDs",
+            int((~df["Store ID"].isin(stores_df["ID"])).sum())
+        )
+
+    elif selected_table == "Products":
+        st.metric(
+            "Duplicate Product IDs",
+            int(df["Product ID"].duplicated().sum())
+        )
+
+    elif selected_table == "Categories":
+        st.metric(
+            "Duplicate Category IDs",
+            int(df["Category ID"].duplicated().sum())
+        )
+
+    elif selected_table == "Stores":
+        st.metric(
+            "Duplicate Store IDs",
+            int(df["ID"].duplicated().sum())
+        )
+
+    elif selected_table == "Survey Results":
+        st.metric(
+            "Duplicate Survey IDs",
+            int(df["Survey ID"].duplicated().sum())
+        )
+        stores_df = cached_load(
+            DEFAULT_FILES["Stores"].read_bytes(),
+            DEFAULT_FILES["Stores"].name,
+            0
+        )
+
+        st.metric(
+            "Survey Records with Invalid Store IDs",
+            int((~df["Store ID"].isin(stores_df["ID"])).sum())
+        )
+
+        st.metric(
+            "Duplicate Survey Records",
+            int(df.duplicated().sum())
+        )
+
+    st.subheader("Preview")
     st.dataframe(df.head(50))
+
     left, right = st.columns(2)
-    left.subheader('Missing values')
-    left.dataframe(profile['missing'])
-    right.subheader('Data types')
-    right.dataframe(profile['dtypes'])
+    left.subheader("Missing Values")
+    left.dataframe(profile["missing"])
+    right.subheader("Data Types")
+    right.dataframe(profile["dtypes"])
+
+    st.subheader("Dataset Relationships")
+    st.markdown("""
+    **Sales → Products**
+    - Joined using Product ID.
+    - Identifies which products were sold.
+
+    **Sales → Categories**
+    - Joined using Category ID.
+    - Identifies product categories.
+
+    **Sales → Stores**
+    - Sales Store ID matches Stores ID.
+    - Adds store location, market, and store type.
+
+    **Survey Results → Stores**
+    - Connected using Store ID.
+    - Associates satisfaction responses with stores.
+
+    **Survey Results → Sales**
+    - Matched using Store ID and Year.
+    - Uses distinct store-year combinations to avoid
+      duplicating survey responses.
+    """)
 
 with tab_dash:
-    st.header("E-Presso Business Dashboard")
+    st.header("E-Presso Business Performance")
 
     sales_file = DEFAULT_FILES["Sales"]
     products_file = DEFAULT_FILES["Products"]
@@ -117,12 +221,15 @@ with tab_dash:
     stores_file = DEFAULT_FILES["Stores"]
 
     def dashboard_table(table_name, fallback_path, fallback_sheet):
-        if uploaded is not None and table_name in replacement_sheets:
-            return cached_load(file_bytes, filename, table_name)
-        if selected_table == table_name:
+     # Use the uploaded file only for the selected dataset
+        if uploaded is not None and selected_table == table_name:
             return df
+
+        # Otherwise, use the original dataset
         return cached_load(
-            fallback_path.read_bytes(), fallback_path.name, fallback_sheet
+            fallback_path.read_bytes(),
+            fallback_path.name,
+            fallback_sheet
         )
 
     sales_df = dashboard_table("Sales", sales_file, "Sales")
@@ -132,9 +239,9 @@ with tab_dash:
 
     survey_file = DEFAULT_FILES["Survey Results"]
 
-    survey_df = cached_load(
-        survey_file.read_bytes(),
-        survey_file.name,
+    survey_df = dashboard_table(
+        "Survey Results",
+        survey_file,
         "Survey Results"
     )
 
@@ -157,7 +264,6 @@ with tab_dash:
     except ValueError as exc:
         st.error(f"Sales + Products merge failed: {exc}")
         st.stop()
-    display_merge_report("Merge Validation: Sales + Products", products_report)
 
     try:
         merged_df, categories_report = analytics.merge_sales_categories(
@@ -166,7 +272,6 @@ with tab_dash:
     except ValueError as exc:
         st.error(f"Sales + Categories merge failed: {exc}")
         st.stop()
-    display_merge_report("Merge Validation: Sales + Categories", categories_report)
 
     try:
         merged_df, stores_report = analytics.merge_sales_stores(
@@ -175,28 +280,6 @@ with tab_dash:
     except ValueError as exc:
         st.error(f"Sales + Stores merge failed: {exc}")
         st.stop()
-    display_merge_report("Merge Validation: Sales + Stores", stores_report)
-
-    total_revenue = analytics.calculate_total_revenue(merged_df)
-    st.metric(
-                label="Total Revenue",
-                value=f"${total_revenue:,.2f}"
-            )
-
-    st.subheader("Merge Quality Checks")
-
-    st.write(
-        "Missing or non-numeric Revenue values:",
-        analytics.count_missing_or_non_numeric(sales_df, "Revenue"),
-    )
-    st.write("Blank Product ID keys in Products:", products_df["Product ID"].isna().sum())
-    st.write("Blank Category ID keys in Categories:", categories_df["Category ID"].isna().sum())
-    st.write("Blank ID keys in Stores:", stores_df["ID"].isna().sum())
-    st.write("Missing product names:", merged_df["Product"].isna().sum())
-    st.write("Missing category names:", merged_df["Category"].isna().sum())
-    st.write("Missing store matches:", merged_df["ID"].isna().sum())
-
-    st.subheader("Merged Data: Sales + Products + Categories + Stores")
 
     merged_df["Year"] = pd.to_datetime(merged_df["Date"]).dt.year
 
@@ -308,6 +391,16 @@ with tab_dash:
             merged_df["State"].isin(selected_states)
         ]
 
+    # Calculate revenue AFTER applying filters
+    total_revenue = analytics.calculate_total_revenue(merged_df)
+
+    revenue_col, satisfaction_col = st.columns(2)
+
+    with revenue_col:
+        st.metric(
+            label="Total Revenue",
+            value=f"${total_revenue:,.2f}"
+        )
          # -----------------------------------
     # CUSTOMER SATISFACTION
     # -----------------------------------
@@ -341,12 +434,13 @@ with tab_dash:
     ).mean()
 
     # Display the metric
-    st.metric(
-        "Average Customer Satisfaction",
-        f"{average_satisfaction:.2f} / 5"
-        if pd.notna(average_satisfaction)
-        else "No survey data"
-    )
+    with satisfaction_col:
+        st.metric(
+            label="Average Customer Satisfaction",
+            value=f"{average_satisfaction:.2f} / 5"
+            if pd.notna(average_satisfaction)
+            else "No survey data"
+        )
 
         # -----------------------------------
     # CUSTOMER SATISFACTION BY MARKET
@@ -370,6 +464,8 @@ with tab_dash:
     )
 
     # Create horizontal bar chart
+    chart_col1, chart_col2 = st.columns(2)
+
     fig_satisfaction = px.bar(
         satisfaction_by_market,
         x="Satisfaction",
@@ -382,28 +478,60 @@ with tab_dash:
         }
     )
 
-    fig_satisfaction.update_xaxes(range=[0, 5])
+    # Show satisfaction scores at the end of each bar
+    fig_satisfaction.update_traces(
+        texttemplate="%{x:.2f}",
+        textposition="outside",
+        cliponaxis=False
+    )
 
-    st.plotly_chart(fig_satisfaction, width="stretch")
+    fig_satisfaction.update_layout(
+        margin=dict(l=100, r=65, t=60, b=40)
+    )
 
-    st.dataframe(merged_df.head(20))
+    # Show both axes when data is available
+    fig_satisfaction.update_xaxes(
+        title_text="Average Satisfaction (1–5)",
+        range=[0, 5],
+        visible=True
+    )
 
-    st.subheader("Total Revenue by Year")
+    fig_satisfaction.update_yaxes(
+        title_text="Market",
+        visible=True,
+        automargin=True
+    )
+
+    # Display a message when no survey data is available
+    if satisfaction_by_market.empty:
+        fig_satisfaction.add_annotation(
+            text="No customer satisfaction data available for the selected filters",
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            font=dict(size=16, color="gray")
+        )
+
+        fig_satisfaction.update_xaxes(visible=False)
+        fig_satisfaction.update_yaxes(visible=False)
+
+    with chart_col2:
+        st.plotly_chart(fig_satisfaction, width="stretch")
+
+
+   # TOTAL REVENUE BY YEAR
+    # -----------------------------------
 
     # Convert dates and extract the year
     merged_df["Date"] = pd.to_datetime(merged_df["Date"])
     merged_df["Year"] = merged_df["Date"].dt.year
 
     # Calculate revenue by year
-    revenue_by_year = (
-        merged_df.groupby("Year")["Revenue"]
-        .sum()
-        .reset_index()
-        .sort_values("Year")
-    )
-    revenue_by_year["Year"] = revenue_by_year["Year"].astype(str)
+    revenue_by_year = analytics.calculate_revenue_by_year(merged_df)
 
-    # Create ONE line chart
+    # Create line chart
     fig = px.line(
         revenue_by_year,
         x="Year",
@@ -412,6 +540,12 @@ with tab_dash:
         markers=True
     )
 
+    fig.update_yaxes(
+        tickformat="$,.0f",
+        range=[0, revenue_by_year["Revenue"].max() * 1.2]
+    )
+
+    # Format years without commas
     fig.update_xaxes(
         tickmode="array",
         tickvals=[2025, 2026, 2027, 2028, 2029],
@@ -422,29 +556,34 @@ with tab_dash:
 
     fig.update_yaxes(title="Total Revenue")
 
-    st.plotly_chart(fig, use_container_width=True)
+    # Display chart in left column
+    with chart_col1:
+        st.plotly_chart(fig, width="stretch")
 
-    st.subheader("Total Revenue by Store Type")
+     # -----------------------------------
+    # TOTAL REVENUE BY STORE TYPE
+    # -----------------------------------
 
-    revenue_by_store_type = (
-        merged_df.groupby("Market")["Revenue"]
-        .sum()
-        .reset_index()
-        .sort_values("Revenue", ascending=True)
-    )
+    revenue_by_store_type = analytics.calculate_revenue_by_market(merged_df)
 
     fig_store = px.bar(
         revenue_by_store_type,
         x="Revenue",
         y="Market",
         orientation="h",
+        title="Total Revenue by Market",
         labels={
             "Revenue": "Total Revenue",
-            "Market": "Store Type"
+            "Market": "Market"
         }
     )
+    # Display chart in right column
+    with chart_col2:
+        st.plotly_chart(fig_store, width="stretch")
 
-    st.plotly_chart(fig_store, use_container_width=True)
+    # -----------------------------------
+    # PERCENTAGE OF REVENUE PER MONTH
+    # -----------------------------------
 
     # Extract the month from the Date column
     merged_df["Month"] = merged_df["Date"].dt.month
@@ -459,7 +598,8 @@ with tab_dash:
 
     # Calculate each month's percentage of total revenue
     revenue_by_month["Percentage"] = (
-        revenue_by_month["Revenue"] / revenue_by_month["Revenue"].sum() * 100
+        revenue_by_month["Revenue"]
+        / revenue_by_month["Revenue"].sum() * 100
     )
 
     # Create the chart
@@ -474,7 +614,7 @@ with tab_dash:
         }
     )
 
-    # Display months as 1 through 12
+    # Display month names horizontally
     fig_month.update_xaxes(
         tickmode="array",
         tickvals=list(range(1, 13)),
@@ -485,7 +625,9 @@ with tab_dash:
         tickangle=0
     )
 
-    st.plotly_chart(fig_month, use_container_width=True)
+    # Display chart in left column
+    with chart_col1:
+        st.plotly_chart(fig_month, width="stretch")
 
 with tab_assistant:
     st.caption('Mode: rules-based starter. Describe what you actually built here.')

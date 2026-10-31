@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 from dataclasses import asdict, dataclass, field
+from unicodedata import name
 
 import pandas as pd
 
@@ -26,7 +27,10 @@ def load_table(file_bytes: bytes, filename: str, sheet_name=0) -> pd.DataFrame:
 
         return pd.read_excel(buffer, sheet_name=sheet_name)
     if name.endswith(TEXT_EXT):
-        return pd.read_csv(buffer, sep=None, engine='python')  # sniffs the delimiter
+        first_line = file_bytes.decode("utf-8-sig").splitlines()[0]
+        separator = "\t" if first_line.count("\t") > first_line.count(",") else ","
+        return pd.read_csv(buffer, sep=separator)
+
     raise ValueError(f'Unsupported file type: {filename}')
 
 
@@ -237,3 +241,23 @@ def merge_sales_stores(sales_df, stores_df):
         sales_df, stores_df, left_on='Store ID', right_on='ID',
         value_col='Revenue', how='left', validate='many_to_one',
     )
+
+def calculate_revenue_by_year(df):
+    """Calculate total revenue for each year."""
+    revenue_by_year = (
+        df.groupby("Year")["Revenue"]
+        .sum()
+        .reset_index()
+        .sort_values("Year")
+    )
+    return revenue_by_year
+
+def calculate_revenue_by_market(df):
+    """Calculate total revenue for each market."""
+    revenue_by_market = (
+        df.groupby("Market")["Revenue"]
+        .sum()
+        .reset_index()
+        .sort_values("Revenue", ascending=True)
+    )
+    return revenue_by_market
