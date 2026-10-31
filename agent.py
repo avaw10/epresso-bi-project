@@ -67,6 +67,19 @@ def rules_router(question: str, df):
     
     # Questions about revenue
     if 'revenue' in q:
+          # Questions asking for revenue across all years
+        if any(phrase in q for phrase in (
+            'each year',
+            'every year',
+            'by year',
+            'yearly',
+            'annual revenue'
+        )):
+            return 'group_total', {
+                'value_col': 'Revenue',
+                'group_col': 'Year',
+                'filters': None
+            }
         # Check whether the question mentions a year
         years = [2025, 2026, 2027, 2028, 2029]
 
