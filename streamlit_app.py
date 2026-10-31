@@ -620,6 +620,16 @@ with tab_assistant:
             st.warning('Question limit reached for this session. Reload the page to start over.')
         else:
             st.session_state['n_questions'] += 1
-            answer = agent.answer_question(question, df, mode='rules')
+            
+            assistant_df = df.copy()
+
+            if selected_table == "Sales":
+                assistant_df["Year"] = pd.to_datetime(
+                    assistant_df["Date"]
+                ).dt.year
+
+            answer = agent.answer_question(
+                question, assistant_df, mode='rules'
+            )
             st.session_state['history'].append({'question': question, 'answer': answer})
             st.rerun()

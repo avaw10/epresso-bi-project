@@ -64,15 +64,25 @@ def rules_router(question: str, df):
     if any(w in q for w in ('missing', 'duplicate', 'quality', 'blank')):
         return 'data_quality_report', {}
 
-    # Questions about total revenue
-    if (
-        'revenue' in q
-        and any(w in q for w in ('total', 'overall', 'all'))
-    ):
-        return 'get_total', {
-            'value_col': 'Revenue',
-            'filters': None
-        }
+    
+    # Questions about revenue
+    if 'revenue' in q:
+        # Check whether the question mentions a year
+        years = [2025, 2026, 2027, 2028, 2029]
+
+        for year in years:
+            if str(year) in q:
+                return 'get_total', {
+                    'value_col': 'Revenue',
+                    'filters': {'Year': year}
+                }
+
+        # If no year is mentioned, calculate total revenue
+        if any(w in q for w in ('total', 'overall', 'all')):
+            return 'get_total', {
+                'value_col': 'Revenue',
+                'filters': None
+            }
 
     return None
 
