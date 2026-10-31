@@ -261,3 +261,22 @@ def calculate_revenue_by_market(df):
         .sort_values("Revenue", ascending=True)
     )
     return revenue_by_market
+
+def calculate_monthly_revenue_percentage(df):
+    """Calculate each month's share of total filtered revenue."""
+    revenue_by_month = (
+        df.groupby("Month")["Revenue"]
+        .sum()
+        .reset_index()
+        .sort_values("Month")
+    )
+
+    total_revenue = revenue_by_month["Revenue"].sum()
+
+    revenue_by_month["Percentage"] = (
+        revenue_by_month["Revenue"] / total_revenue * 100
+        if total_revenue != 0
+        else 0.0
+    )
+
+    return revenue_by_month

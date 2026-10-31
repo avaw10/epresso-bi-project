@@ -589,12 +589,7 @@ with tab_dash:
     merged_df["Month"] = merged_df["Date"].dt.month
 
     # Calculate revenue by month
-    revenue_by_month = (
-        merged_df.groupby("Month")["Revenue"]
-        .sum()
-        .reset_index()
-        .sort_values("Month")
-    )
+    revenue_by_month = analytics.calculate_monthly_revenue_percentage(merged_df)
 
     # Calculate each month's percentage of total revenue
     revenue_by_month["Percentage"] = (
