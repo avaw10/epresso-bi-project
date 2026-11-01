@@ -2,9 +2,13 @@
 The router (rules now, a language model later) only CHOOSES a tool and its
 arguments. Our code RUNS the tool. Nothing here executes model-written code."""
 from __future__ import annotations
-
+import streamlit as st
+from openai import OpenAI
 import analytics
 from analytics import ToolResult
+
+def get_openai_client():
+    return OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # The ONLY things the assistant may do. Add your own tools here.
 TOOLS = {
@@ -25,9 +29,11 @@ TOOLS = {
     },
 }
 
-UNSUPPORTED = ('I can only answer questions that my approved analytical functions can '
-               'calculate from the loaded data: ' + ', '.join(TOOLS) + '. '
-               'I cannot answer that one.')
+UNSUPPORTED = ("I can't answer that question reliably with my current analytical tools. "
+    "I can calculate revenue, compare revenue across years, and check "
+    "for missing or duplicate data.\n\n"
+    "**Suggested next step:** We may need additional analysis or data "
+    "to investigate your question.")
 
 # For when you add a language model: keep these rules in the system prompt.
 SYSTEM_PROMPT = """You are an analytical assistant for E-Presso managers.
@@ -60,6 +66,18 @@ def rules_router(question: str, df):
     """Choose an approved analytical function based on the question."""
     q = question.lower()
 
+    # Do not treat causal questions as simple calculations
+    causal_phrases = (
+        "why ",
+        "what caused",
+        "what led to",
+        "what explains",
+        "reason for",
+    )
+
+    if any(phrase in q for phrase in causal_phrases):
+        return None
+
     # Questions about missing data or duplicates
     if any(w in q for w in ('missing', 'duplicate', 'quality', 'blank')):
         return 'data_quality_report', {}
@@ -80,6 +98,29 @@ def rules_router(question: str, df):
                 'group_col': 'Year',
                 'filters': None
             }
+            # Recognize questions comparing two years
+        years_mentioned = [
+            year for year in [2025, 2026, 2027, 2028, 2029]
+            if str(year) in q
+        ]
+
+        if len(years_mentioned) == 2:
+            return 'group_total', {
+                'value_col': 'Revenue',
+                'group_col': 'Year',
+                'filters': {'Year': years_mentioned}
+            }
+        
+        # Reject years that are not available in the loaded data
+        import re
+
+        requested_years = re.findall(r"\b(?:19|20)\d{2}\b", q)
+
+        available_years = set(df["Year"].dropna().astype(int))
+
+        for requested_year in requested_years:
+            if int(requested_year) not in available_years:
+                return None
         # Check whether the question mentions a year
         years = [2025, 2026, 2027, 2028, 2029]
 
@@ -129,22 +170,146 @@ def format_findings(result: ToolResult) -> str:
             f"based on {result.rows_used:,} sales records."
         )
 
+    # Format revenue by year
+    if result.tool == "group_total" and isinstance(result.value, dict):
+        filters = result.scope.get("filters", {})
+
+        lines = ["E-Presso generated the following revenue each year:\n"]
+
+        for year, revenue in sorted(result.value.items()):
+            lines.append(f"- **{year}:** ${revenue:,.2f}")
+
+ # Calculate revenue growth from the first year to the last
+        years = sorted(result.value.keys())
+
+        if len(years) >= 2:
+            first_year = years[0]
+            last_year = years[-1]
+
+            first_revenue = result.value[first_year]
+            last_revenue = result.value[last_year]
+
+            if first_revenue > 0:
+                growth = (
+                    (last_revenue - first_revenue)
+                    / first_revenue
+                ) * 100
+
+                difference = last_revenue - first_revenue
+
+                direction = (
+                    "increased" if difference >= 0 else "decreased"
+                )
+
+                lines.append(
+                    f"\n**Key insight:** Revenue {direction} by "
+                    f"**${abs(difference):,.2f} ({abs(growth):.1f}%)** "
+                    f"from {first_year} to {last_year}."
+                )
+
+        return "\n".join(lines)
+    # Format data-quality results
+    if result.tool == "data_quality_report" and isinstance(result.value, dict):
+        rows = result.value.get("rows", 0)
+        duplicates = result.value.get("duplicate_rows", 0)
+        missing = result.value.get("columns_with_missing", {})
+
+        lines = [
+            f"I reviewed **{rows:,} records** for missing values "
+            f"and completely duplicate rows.",
+            ""
+        ]
+
+        if duplicates == 0:
+            lines.append("**Duplicate rows:** None found.")
+        else:
+            lines.append(
+                f"**Duplicate rows:** {duplicates:,} found."
+            )
+
+        if not missing:
+            lines.append("**Missing values:** None found.")
+        else:
+            lines.append("**Missing values by column:**")
+            for column, count in missing.items():
+                lines.append(f"- {column}: {count:,}")
+
+        lines.append(
+            "\n**What this means:** These checks help identify "
+            "potential data-quality issues, but they do not "
+            "guarantee that every record is accurate."
+        )
+
+        return "\n\n".join(lines)
+
     # Keep other analytical results unchanged for now
     return f"{result.definition}: {result.value} (rows used: {result.rows_used})"
 
 
 def answer_question(question: str, df, mode: str = 'rules') -> dict:
-    log: list = []
-    routed = rules_router(question, df) if mode == 'rules' else llm_router(question, df)
+    log = []
+
+    routed = (
+        rules_router(question, df)
+        if mode == 'rules'
+        else llm_router(question, df)
+    )
+
     if routed is None:
-        return {'scope': 'n/a', 'findings': UNSUPPORTED, 'interpretation': '',
-                'next_steps': '', 'tool_log': log}
+        return {
+            'scope': 'Selected dataset; no calculation performed',
+            'findings': UNSUPPORTED,
+            'interpretation': (
+                'The current analytical tools cannot reliably '
+                'answer this question.'
+            ),
+            'next_steps': (
+                'Try asking about total revenue, revenue by year, '
+                'year comparisons, or missing and duplicate data.'
+            ),
+            'tool_log': log
+        }
+
     name, args = routed
     result = run_tool(name, args, df, log)
+
+    # Create a readable description of the calculation scope
+    filters = result.scope.get('filters', 'All records')
+
+    if isinstance(filters, dict):
+        if filters:
+            scope_text = ', '.join(
+                f"{key}: {value}"
+                for key, value in filters.items()
+            )
+        else:
+            scope_text = 'All records'
+    else:
+        scope_text = 'All records'
+
+    # Recommend further investigation without claiming a cause
+    if result.error:
+        next_steps = (
+            'Check the requested filters and available data, '
+            'then try again.'
+        )
+    elif name in ('get_total', 'group_total'):
+        next_steps = (
+            'Compare revenue across other years or groups '
+            'to investigate differences in performance.'
+        )
+    elif name == 'data_quality_report':
+        next_steps = (
+            'Review unique record identifiers and other '
+            'data validation checks for additional issues.'
+        )
+    else:
+        next_steps = 'No recommendation is supported by this data.'
+
     return {
-        'scope': str(result.scope),
+        'scope': scope_text,
         'findings': format_findings(result),
         'interpretation': ' '.join(result.caveats),
-        'next_steps': '',
-        'tool_log': log,
+        'next_steps': next_steps,
+        'tool_log': log
     }

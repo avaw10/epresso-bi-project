@@ -601,35 +601,85 @@ with tab_dash:
         st.plotly_chart(fig_month, width="stretch")
 
 with tab_assistant:
-    st.caption('Mode: rules-based starter. Describe what you actually built here.')
-    st.session_state.setdefault('n_questions', 0)
-    st.session_state.setdefault('history', [])
-    for item in st.session_state['history']:
-        with st.chat_message('user'):
-            st.write(item['question'])
-        with st.chat_message('assistant'):
-            st.markdown(f"**Scope:** {item['answer']['scope']}")
-            st.markdown(f"**Findings:** {item['answer']['findings']}")
-            if item['answer']['interpretation']:
-                st.markdown(f"**Interpretation:** {item['answer']['interpretation']}")
-            with st.expander('Tool-call log'):
-                st.json(item['answer']['tool_log'])
-    question = st.chat_input('Ask a question about the loaded data')
+
+    if st.button("Test OpenAI Connection"):
+        try:
+            client = agent.get_openai_client()
+
+            response = client.responses.create(
+                model="gpt-4.1-mini",
+                input="Reply with exactly: Connection successful"
+            )
+
+            st.success(response.output_text)
+
+        except Exception as e:
+            st.error(f"Connection failed: {e}")
+    st.caption("E-Presso Business Analyst | Rules-based assistant")
+
+    st.session_state.setdefault("n_questions", 0)
+    st.session_state.setdefault("history", [])
+
+    # Display previous questions and answers
+    for item in st.session_state["history"]:
+        with st.chat_message("user"):
+            st.write(item["question"])
+
+        with st.chat_message("assistant"):
+            answer = item["answer"]
+
+            # Scope must appear at the beginning
+            st.markdown(f"**Scope:** {answer['scope']}")
+
+            st.markdown("**Findings**")
+            st.markdown(answer["findings"])
+
+            st.markdown("**Interpretation**")
+            if answer["interpretation"]:
+                st.write(answer["interpretation"])
+            else:
+                st.write("No additional interpretation is supported.")
+
+            st.markdown("**Next steps**")
+            st.write(
+                answer["next_steps"]
+                or "No recommendation is supported by this data."
+            )
+
+            # Keep the technical details available
+            with st.expander("View calculation details"):
+                st.json(answer["tool_log"])
+
+    # Accept a new question
+    question = st.chat_input("Ask a question about the loaded data")
+
     if question:
-        if st.session_state['n_questions'] >= MAX_QUESTIONS:
-            st.warning('Question limit reached for this session. Reload the page to start over.')
+        if st.session_state["n_questions"] >= MAX_QUESTIONS:
+            st.warning(
+                "Question limit reached for this session."
+            )
         else:
-            st.session_state['n_questions'] += 1
-            
+            st.session_state["n_questions"] += 1
+
             assistant_df = df.copy()
 
+            # Add Year for revenue questions
             if selected_table == "Sales":
                 assistant_df["Year"] = pd.to_datetime(
                     assistant_df["Date"]
                 ).dt.year
 
+            # Ask the rules-based assistant
             answer = agent.answer_question(
-                question, assistant_df, mode='rules'
+                question,
+                assistant_df,
+                mode="rules"
             )
-            st.session_state['history'].append({'question': question, 'answer': answer})
+
+            # Save the answer to chat history
+            st.session_state["history"].append({
+                "question": question,
+                "answer": answer
+            })
+
             st.rerun()
