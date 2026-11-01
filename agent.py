@@ -27,6 +27,19 @@ TOOLS = {
         'params': set(),
         'description': 'Report duplicates and missing values in the loaded data.',
     },
+       'get_average_satisfaction': {
+        'fn': analytics.get_average_satisfaction,
+        'params': set(),
+        'description': 'Calculate average customer satisfaction from survey responses.',
+    },
+      'greatest_store_revenue_decline': {
+        'fn': analytics.greatest_store_revenue_decline,
+        'params': set(),
+        'description': (
+            'Find the store with the greatest percentage revenue '
+            'decline between consecutive years.'
+        ),
+    },
 }
 
 UNSUPPORTED = ("I can't answer that question reliably with my current analytical tools. "
@@ -46,21 +59,40 @@ Rules:
 - If the data cannot support a conclusion, say so and name the missing information.
 - Never ask for, run, or write code. Never modify data."""
 
+def run_tool(name: str, args: dict, df, log: list, survey_df=None) -> ToolResult:
+    """Validate, execute, and log approved analytical tools."""
 
-def run_tool(name: str, args: dict, df, log: list) -> ToolResult:
-    """The dispatcher: validate the request, run the function, log the call."""
     if name not in TOOLS:
-        result = analytics._error(name, f'Unknown tool: {name}')
+        result = analytics._error(name, f"Unknown tool: {name}")
+
     else:
-        unexpected = set(args) - TOOLS[name]['params']
+        unexpected = set(args) - TOOLS[name]["params"]
+
         if unexpected:
-            result = analytics._error(name, f'Unexpected argument(s): {sorted(unexpected)}')
+            result = analytics._error(
+                name,
+                f"Unexpected argument(s): {sorted(unexpected)}"
+            )
+
+        elif name == "get_average_satisfaction":
+            if survey_df is None:
+                result = analytics._error(
+                    name,
+                    "Survey data is not available."
+                )
+            else:
+                result = TOOLS[name]["fn"](survey_df, **args)
+
         else:
-            result = TOOLS[name]['fn'](df, **args)
-    log.append({'tool': name, 'arguments': args, 'result': result.to_dict()})
+            result = TOOLS[name]["fn"](df, **args)
+
+    log.append({
+        "tool": name,
+        "arguments": args,
+        "result": result.to_dict()
+    })
+
     return result
-
-
 
 def rules_router(question: str, df):
     """Choose an approved analytical function based on the question."""
@@ -223,7 +255,42 @@ def llm_router(question, df):
                 "additionalProperties": False
             },
             "strict": True
-        }
+        },
+                {
+            "type": "function",
+            "name": "get_average_satisfaction",
+            "description": (
+                "Calculate the overall average customer satisfaction "
+                "score from Survey Results. Use this when the user "
+                "asks about average or overall customer satisfaction."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False
+            },
+            "strict": True
+        },
+
+        {
+            "type": "function",
+            "name": "greatest_store_revenue_decline",
+            "description": (
+                "Find which store experienced the greatest percentage "
+                "revenue decline between any two consecutive years. "
+                "Use for questions about the largest or worst "
+                "year-over-year store revenue decline. "
+                "Does not support comparisons restricted to specific years."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False
+            },
+            "strict": True
+        },
     ]
 
     response = client.responses.create(
@@ -268,6 +335,13 @@ def format_findings(result: ToolResult) -> str:
 
     if result.error:
         return f"I couldn't complete that calculation: {result.error}"
+    
+    if result.tool == "get_average_satisfaction":
+        return (
+            f"The average customer satisfaction score is "
+            f"**{result.value:.2f} out of 5**, "
+            f"based on {result.rows_used:,} valid survey responses."
+        )
 
     # Format a single revenue result
     if result.tool == "get_total" and isinstance(result.value, (int, float)):
@@ -362,7 +436,12 @@ def format_findings(result: ToolResult) -> str:
     return f"{result.definition}: {result.value} (rows used: {result.rows_used})"
 
 
-def answer_question(question: str, df, mode: str = 'rules') -> dict:
+def answer_question(
+    question: str,
+    df,
+    mode: str = 'rules',
+    survey_df=None
+) -> dict:
     log = []
 
     routed = (
@@ -387,7 +466,7 @@ def answer_question(question: str, df, mode: str = 'rules') -> dict:
         }
 
     name, args = routed
-    result = run_tool(name, args, df, log)
+    result = run_tool(name, args, df, log, survey_df=survey_df)
 
     # Create a readable description of the calculation scope
     filters = result.scope.get('filters', 'All records')

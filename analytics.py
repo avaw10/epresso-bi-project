@@ -331,3 +331,97 @@ def filter_survey_by_sales(survey_df, filtered_sales_df):
     )
 
     return filtered_survey
+
+
+def get_average_satisfaction(df) -> ToolResult:
+    """Calculate average customer satisfaction from survey responses."""
+
+    if "Satisfaction" not in df.columns:
+        return _error(
+            "get_average_satisfaction",
+            "Survey data does not contain a Satisfaction column."
+        )
+
+    scores = pd.to_numeric(df["Satisfaction"], errors="coerce")
+    valid_scores = scores.dropna()
+
+    if valid_scores.empty:
+        return _error(
+            "get_average_satisfaction",
+            "No valid satisfaction scores were found."
+        )
+
+    return ToolResult(
+        tool="get_average_satisfaction",
+        value=float(valid_scores.mean()),
+        definition="Average customer satisfaction across valid survey responses.",
+        scope={"dataset": "Survey Results", "filters": {}},
+        rows_used=len(valid_scores),
+        caveats=[
+            "This is an average of survey responses, not all customers.",
+            "The result does not establish why customers are satisfied or dissatisfied."
+        ]
+    )
+
+def greatest_store_revenue_decline(df: pd.DataFrame) -> ToolResult:
+    """Find the largest store revenue decline between consecutive years."""
+
+    name = "greatest_store_revenue_decline"
+    required = ["Store ID", "Year", "Revenue"]
+
+    for col in required:
+        if col not in df.columns:
+            return _error(name, f"Missing required column: {col}")
+
+    work = df[required].copy()
+    work["Revenue"] = pd.to_numeric(work["Revenue"], errors="coerce")
+    work = work.dropna(subset=required)
+
+    yearly = (
+        work.groupby(["Store ID", "Year"])["Revenue"]
+        .sum()
+        .reset_index()
+        .sort_values(["Store ID", "Year"])
+    )
+
+    yearly["Previous Year"] = yearly.groupby("Store ID")["Year"].shift(1)
+    yearly["Previous Revenue"] = yearly.groupby("Store ID")["Revenue"].shift(1)
+
+    # Compare only consecutive years with positive prior revenue.
+    comparisons = yearly[
+        (yearly["Year"] - yearly["Previous Year"] == 1)
+        & (yearly["Previous Revenue"] > 0)
+    ].copy()
+
+    comparisons["Percentage Change"] = (
+        (comparisons["Revenue"] - comparisons["Previous Revenue"])
+        / comparisons["Previous Revenue"]
+        * 100
+    )
+
+    declines = comparisons[comparisons["Percentage Change"] < 0]
+
+    if declines.empty:
+        return _error(name, "No year-over-year store revenue declines found.")
+
+    worst = declines.loc[declines["Percentage Change"].idxmin()]
+
+    return ToolResult(
+        tool=name,
+        value={
+            "store_id": str(worst["Store ID"]),
+            "previous_year": int(worst["Previous Year"]),
+            "year": int(worst["Year"]),
+            "previous_revenue": float(worst["Previous Revenue"]),
+            "current_revenue": float(worst["Revenue"]),
+            "percentage_change": float(worst["Percentage Change"])
+        },
+        definition="Largest year-over-year percentage revenue decline by store.",
+        scope={"dataset": "Sales", "filters": "All stores and years"},
+        rows_used=len(work),
+        caveats=[
+            "Compares consecutive years only.",
+            "Excludes comparisons with zero or negative prior-year revenue.",
+            "A percentage decline does not establish the cause."
+        ]
+    )

@@ -246,6 +246,8 @@ with tab_dash:
         survey_file,
         "Survey Results"
     )
+    # Preserve the full survey dataset for the AI assistant
+    assistant_survey_df = survey_df.copy()
 
     for source_df, column, table_name in (
         (products_df, "Product", "Products table"),
@@ -284,6 +286,8 @@ with tab_dash:
         st.stop()
 
     merged_df["Year"] = pd.to_datetime(merged_df["Date"]).dt.year
+        # Preserve all sales records for the AI assistant
+    assistant_sales_df = merged_df.copy()
 
     # -----------------------------------
     # DASHBOARD FILTERS
@@ -650,7 +654,7 @@ with tab_assistant:
         else:
             st.session_state["n_questions"] += 1
 
-            assistant_df = df.copy()
+            assistant_df = assistant_sales_df.copy()
 
             # Add Year for revenue questions
             if selected_table == "Sales":
@@ -662,8 +666,10 @@ with tab_assistant:
             answer = agent.answer_question(
                 question,
                 assistant_df,
-                mode="llm"
+                mode="llm",
+                survey_df=assistant_survey_df
             )
+
 
             # Save the answer to chat history
             st.session_state["history"].append({
