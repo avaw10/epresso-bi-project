@@ -105,10 +105,32 @@ def llm_router(question: str, df):
     raise NotImplementedError('Add the language-model router after your tools are tested.')
 
 
+
 def format_findings(result: ToolResult) -> str:
+    """Turn calculation results into readable business answers."""
+
     if result.error:
-        return f'The request could not be completed: {result.error}'
-    return f'{result.definition}: {result.value}  (rows used: {result.rows_used})'
+        return f"I couldn't complete that calculation: {result.error}"
+
+    # Format a single revenue result
+    if result.tool == "get_total" and isinstance(result.value, (int, float)):
+        revenue = f"${result.value:,.2f}"
+        filters = result.scope.get("filters")
+
+        if isinstance(filters, dict) and "Year" in filters:
+            year = filters["Year"]
+            return (
+                f"E-Presso generated **{revenue} in revenue in {year}**, "
+                f"based on {result.rows_used:,} sales records."
+            )
+
+        return (
+            f"E-Presso generated **{revenue} in total revenue**, "
+            f"based on {result.rows_used:,} sales records."
+        )
+
+    # Keep other analytical results unchanged for now
+    return f"{result.definition}: {result.value} (rows used: {result.rows_used})"
 
 
 def answer_question(question: str, df, mode: str = 'rules') -> dict:
