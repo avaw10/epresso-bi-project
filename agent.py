@@ -140,12 +140,128 @@ def rules_router(question: str, df):
 
     return None
 
-def llm_router(question: str, df):
-    """Option A router. TODO: after the rules-based version works, ask a model that
-    supports function calling to choose from TOOLS. Return (name, args) or None."""
-    raise NotImplementedError('Add the language-model router after your tools are tested.')
 
+def llm_router(question, df):
+    """Use OpenAI to select an approved analytical tool."""
 
+    import json
+
+    client = get_openai_client()
+
+    # Only tools in this list can be selected by the LLM.
+    tools = [
+        {
+            "type": "function",
+            "name": "get_total",
+            "description": "Calculate total revenue, optionally for a specific year.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "value_col": {
+                        "type": "string",
+                        "enum": ["Revenue"]
+                    },
+                    
+                    "filters": {
+                        "type": "object",
+                        "properties": {
+                            "Year": {
+                                "type": ["integer", "null"]
+                            }
+                        },
+                        "required": ["Year"],
+                        "additionalProperties": False
+                    }
+                },
+                "required": ["value_col", "filters"],
+                "additionalProperties": False
+            },
+            "strict": True
+        },
+        {
+            "type": "function",
+            "name": "group_total",
+            "description": "Calculate revenue by year or compare revenue across years.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "value_col": {
+                        "type": "string",
+                        "enum": ["Revenue"]
+                    },
+                    "group_col": {
+                        "type": "string",
+                        "enum": ["Year"]
+                    },
+                    "filters": {
+                        "type": "object",
+                        "properties": {
+                            "Year": {
+                                "type": ["array", "null"],
+                                "items": {
+                                    "type": "integer"
+                                }
+                            }
+                        },
+                        "required": ["Year"],
+                        "additionalProperties": False
+                    }
+                },
+                "required": ["value_col", "group_col", "filters"],
+                "additionalProperties": False
+            },
+            "strict": True
+        },
+        {
+            "type": "function",
+            "name": "data_quality_report",
+            "description": "Check for missing values and duplicate records.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    ]
+
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        instructions=(
+            "You are a tool-selection assistant for E-Presso. "
+            "Choose only an available analytical function. "
+            "Never calculate numbers yourself. "
+            "If the question cannot be answered using the "
+            "available functions, do not call a tool. "
+            "Do not invent columns, years, or filters."
+        ),
+        input=(
+            f"Available years: "
+            f"{sorted(df['Year'].dropna().astype(int).unique().tolist())}. "
+            f"Question: {question}"
+        ),
+        tools=tools,
+        tool_choice="auto"
+    )
+
+    for item in response.output:
+            if item.type == "function_call":
+                args = json.loads(item.arguments)
+
+                # Remove empty year filters before calling Python
+                if "filters" in args:
+                    filters = args["filters"]
+
+                    if filters is None:
+                        args["filters"] = {}
+                    elif isinstance(filters, dict):
+                        if filters.get("Year") is None:
+                            filters.pop("Year", None)
+
+                return item.name, args
+
+    return None
 
 def format_findings(result: ToolResult) -> str:
     """Turn calculation results into readable business answers."""

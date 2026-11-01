@@ -4,6 +4,8 @@ from pathlib import Path
 import streamlit as st
 import pandas as pd
 import agent
+import importlib
+importlib.reload(agent)
 import analytics
 import plotly.express as px
 
@@ -602,19 +604,6 @@ with tab_dash:
 
 with tab_assistant:
 
-    if st.button("Test OpenAI Connection"):
-        try:
-            client = agent.get_openai_client()
-
-            response = client.responses.create(
-                model="gpt-4.1-mini",
-                input="Reply with exactly: Connection successful"
-            )
-
-            st.success(response.output_text)
-
-        except Exception as e:
-            st.error(f"Connection failed: {e}")
     st.caption("E-Presso Business Analyst | Rules-based assistant")
 
     st.session_state.setdefault("n_questions", 0)
@@ -673,7 +662,7 @@ with tab_assistant:
             answer = agent.answer_question(
                 question,
                 assistant_df,
-                mode="rules"
+                mode="llm"
             )
 
             # Save the answer to chat history
