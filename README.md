@@ -116,7 +116,6 @@ Monthly revenue percentage shows how much each month contributes to the total re
 
 This helps identify patterns in sales throughout the year.
 
-## Assistant
 ## AI Assistant
 
 I created a live language-model-powered analytical assistant using OpenAI and approved Python analytical functions.
@@ -163,6 +162,14 @@ It cannot:
 - Provide conclusions that are not supported by the available data.
 
 If a question cannot be reliably answered, the Assistant explains the limitation rather than guessing.
+
+### API Failure Handling
+
+If the OpenAI API is unavailable, the API quota is exhausted, or the connection fails, E-Presso automatically attempts to switch to its rules-based assistant. A message informs users that the AI service is temporarily unavailable and that rules-based analysis is being used.
+
+The rules-based assistant supports a more limited set of questions than the AI-powered assistant. If neither method can answer the question, the application displays a friendly message rather than crashing.
+
+I tested this functionality by simulating an API failure and confirming that E-Presso still returned a correct revenue calculation and displayed the fallback notification.
 
 ## Validation
 I completed many tests to make sure the application was calculating information accurately.
