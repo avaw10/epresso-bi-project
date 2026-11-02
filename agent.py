@@ -798,8 +798,9 @@ def answer_question(
                 'answer this question.'
             ),
             'next_steps': (
-                'Try asking about total revenue, revenue by year, '
-                'year comparisons, or missing and duplicate data.'
+                'Try asking about revenue by year or market, '
+                'store performance, average customer satisfaction, '
+                'satisfaction changes between years, or data quality.'
             ),
             'tool_log': log
         }
@@ -836,6 +837,7 @@ def answer_question(
 
     name, args = routed[0]
 
+    results = []
 
     for tool_name, tool_args in routed:
         tool_result = run_tool(
@@ -887,6 +889,7 @@ def answer_question(
 
        # Create a readable description of the calculation scope
         
+    
     filters = {}
 
     for tool_result in results:
@@ -894,10 +897,17 @@ def answer_question(
 
         if isinstance(tool_filters, dict):
             for key, value in tool_filters.items():
+                # Treat a single-year list and an individual year as equal
+                normalized_value = (
+                    value[0]
+                    if isinstance(value, list) and len(value) == 1
+                    else value
+                )
+
                 if key not in filters:
-                    filters[key] = value
-                elif filters[key] != value:
-                    filters[key] = f"{filters[key]}; {value}"
+                    filters[key] = normalized_value
+                elif filters[key] != normalized_value:
+                    filters[key] = f"{filters[key]}; {normalized_value}"
 
     if isinstance(filters, dict):
         if filters:

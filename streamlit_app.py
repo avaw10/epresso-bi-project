@@ -619,8 +619,12 @@ with tab_dash:
 
 with tab_assistant:
 
-    st.caption("E-Presso Business Analyst | LLM assistant")
-
+    st.caption("E-Presso Business Analyst | AI Assistant")
+    st.info(
+        "The AI Assistant uses all E-Presso data, regardless of your "
+        "Dashboard filters. To see specific results, include a year "
+        "or market in your question."
+    )
     st.session_state.setdefault("n_questions", 0)
     st.session_state.setdefault("history", [])
 
