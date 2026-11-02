@@ -333,14 +333,25 @@ def filter_survey_by_sales(survey_df, filtered_sales_df):
     return filtered_survey
 
 
-def get_average_satisfaction(df) -> ToolResult:
-    """Calculate average customer satisfaction from survey responses."""
+
+def get_average_satisfaction(df, year=None) -> ToolResult:
+    """Calculate average customer satisfaction, optionally by year."""
 
     if "Satisfaction" not in df.columns:
         return _error(
             "get_average_satisfaction",
             "Survey data does not contain a Satisfaction column."
         )
+
+    # Filter survey responses by year when requested
+    if year is not None:
+        if "Year" not in df.columns:
+            return _error(
+                "get_average_satisfaction",
+                "Survey data does not contain a Year column."
+            )
+
+        df = df[pd.to_numeric(df["Year"], errors="coerce") == year]
 
     scores = pd.to_numeric(df["Satisfaction"], errors="coerce")
     valid_scores = scores.dropna()
@@ -355,13 +366,17 @@ def get_average_satisfaction(df) -> ToolResult:
         tool="get_average_satisfaction",
         value=float(valid_scores.mean()),
         definition="Average customer satisfaction across valid survey responses.",
-        scope={"dataset": "Survey Results", "filters": {}},
+        scope={
+            "dataset": "Survey Results",
+            "filters": {"Year": year} if year is not None else {}
+        },
         rows_used=len(valid_scores),
         caveats=[
             "This is an average of survey responses, not all customers.",
             "The result does not establish why customers are satisfied or dissatisfied."
         ]
     )
+
 
 def greatest_store_revenue_decline(df: pd.DataFrame) -> ToolResult:
     """Find the largest store revenue decline between consecutive years."""

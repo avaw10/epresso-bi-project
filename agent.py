@@ -17,7 +17,7 @@ TOOLS = {
         'params': {'value_col', 'filters'},
         'description': 'Sum a numeric column, optionally filtered.',
     },
-    'group_total': {
+     'group_total': {
         'fn': analytics.group_total,
         'params': {'value_col', 'group_col', 'filters'},
         'description': 'Sum a numeric column by group (store, channel, year, ...).',
@@ -27,12 +27,16 @@ TOOLS = {
         'params': set(),
         'description': 'Report duplicates and missing values in the loaded data.',
     },
-       'get_average_satisfaction': {
+    
+    'get_average_satisfaction': {
         'fn': analytics.get_average_satisfaction,
-        'params': set(),
-        'description': 'Calculate average customer satisfaction from survey responses.',
+        'params': {'year'},
+        'description': (
+            'Calculate average customer satisfaction from survey responses, '
+            'optionally filtered by year.'
+        ),
     },
-      'greatest_store_revenue_decline': {
+    'greatest_store_revenue_decline': {
         'fn': analytics.greatest_store_revenue_decline,
         'params': set(),
         'description': (
@@ -40,7 +44,7 @@ TOOLS = {
             'decline between consecutive years.'
         ),
         },
-        'greatest_store_revenue_increase': {
+    'greatest_store_revenue_increase': {
         'fn': analytics.greatest_store_revenue_increase,
         'params': set(),
         'description': (
@@ -48,7 +52,7 @@ TOOLS = {
             'increase between consecutive years.'
         ),
         },
-        'compare_store_revenue_growth': {
+    'compare_store_revenue_growth': {
         'fn': analytics.compare_store_revenue_growth,
         'params': {'start_year', 'end_year', 'metric'},
         'description': (
@@ -56,7 +60,7 @@ TOOLS = {
             'two specified years, measured by percentage or dollars.'
         ),
      },
-        'get_store_revenue_declines': {
+    'get_store_revenue_declines': {
         'fn': analytics.get_store_revenue_declines,
         'params': {'start_year', 'end_year'},
         'description': (
@@ -286,18 +290,27 @@ def llm_router(question, df):
             },
             "strict": True
         },
-                {
+                
+        {
             "type": "function",
             "name": "get_average_satisfaction",
             "description": (
-                "Calculate the overall average customer satisfaction "
-                "score from Survey Results. Use this when the user "
-                "asks about average or overall customer satisfaction."
+                "Calculate the average customer satisfaction score "
+                "from survey responses, optionally for a specific year. "
+                "Use for questions about average customer satisfaction. "
+                "This calculates an average, not a total sum."
             ),
             "parameters": {
                 "type": "object",
-                "properties": {},
-                "required": [],
+                "properties": {
+                    "year": {
+                        "type": ["integer", "null"],
+                        "description": (
+                            "The requested year, or null for all years."
+                        )
+                    }
+                },
+                "required": ["year"],
                 "additionalProperties": False
             },
             "strict": True
@@ -558,8 +571,10 @@ def format_findings(result: ToolResult, question: str = "") -> str:
 
     # Format revenue by year
     if result.tool == "group_total" and isinstance(result.value, dict):
-                # Market comparisons should not be treated as year-over-year growth
-        if "Market" in result.definition and result.tool == "group_total":
+
+        # Handle revenue comparisons by market
+        if "Market" in result.definition:
+
             if not result.value:
                 return "No market revenue data was found for the selected filters."
 
@@ -576,28 +591,25 @@ def format_findings(result: ToolResult, question: str = "") -> str:
                 for word in ["least", "lowest", "smallest", "minimum"]
             )
 
-        asking_highest = any(
-        word in question_lower
-        for word in ["most", "highest", "largest", "maximum", "top"]
-        )
-
-        if asking_lowest:
-            selected_market, selected_revenue = ranked_markets[-1]
-            comparison = "least"
-        elif asking_highest:
-            selected_market, selected_revenue = ranked_markets[0]
-            comparison = "most"
-        else:
-            selected_market = None
-            selected_revenue = None
-            comparison = None
+            asking_highest = any(
+                word in question_lower
+                for word in ["most", "highest", "largest", "maximum", "top"]
+            )
 
             lines = []
 
-            if selected_market is not None:
+            if asking_lowest:
+                market, revenue = ranked_markets[-1]
                 lines.append(
-                    f"**{selected_market}** generated the {comparison} revenue, "
-                    f"with **${selected_revenue:,.2f}**.\n"
+                    f"**{market}** generated the least revenue, "
+                    f"with **${revenue:,.2f}**.\n"
+                )
+
+            elif asking_highest:
+                market, revenue = ranked_markets[0]
+                lines.append(
+                    f"**{market}** generated the most revenue, "
+                    f"with **${revenue:,.2f}**.\n"
                 )
 
             lines.append("**Revenue by market:**")
@@ -606,6 +618,8 @@ def format_findings(result: ToolResult, question: str = "") -> str:
                 lines.append(f"- **{market}:** ${revenue:,.2f}")
 
             return "\n".join(lines)
+
+        # Keep your existing revenue-by-year code below this line
         filters = result.scope.get("filters", {})
 
         lines = ["E-Presso generated the following revenue each year:\n"]
