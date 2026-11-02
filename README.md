@@ -1,10 +1,10 @@
 # E-Presso BI Analyst (starter)
 
 ## What this application does
-This application was created to help E-Presso managers better understand their business performance through an interactive dashboard and AI Assistant. Users can explore revenue, customer satisfaction, and sales trends by filtering the data and viewing different charts. We also created an AI Assistant that allows users to ask business questions and receive answers based on actual calculations from the data. The goal was to make the information easy to understand while ensuring the calculations are accurate and update when the data changes.
+This application was created to help E-Presso managers better understand their business performance through an interactive dashboard and AI Assistant. Users can explore revenue, customer satisfaction, and sales trends by filtering the data and viewing different charts. I also created an AI Assistant that allows users to ask business questions and receive answers based on actual calculations from the data. The goal was to make the information easy to understand while ensuring the calculations are accurate and update when the data changes.
 
 ## Live app
-[Insert Streamlit application URL here]
+https://epreapp-bi-project-9u7wpvsobrfvbymdbfteed.streamlit.app/
 The application is hosted through Streamlit Community Cloud and may take a moment to load if it has not been used recently.
 
 ## How to use it
@@ -119,7 +119,7 @@ This helps identify patterns in sales throughout the year.
 ## Assistant
 ## AI Assistant
 
-We created a live language-model-powered analytical assistant using OpenAI and approved Python analytical functions.
+I created a live language-model-powered analytical assistant using OpenAI and approved Python analytical functions.
 
 The AI model interprets the user's question and determines which function or functions are needed. Python then performs the calculations using the currently loaded E-Presso data.
 
