@@ -21,8 +21,230 @@ DEFAULT_FILES = {
     "Survey Results": DATA_FOLDER / "Support_EX_B_Survey (1).xlsx",
 }
 st.set_page_config(page_title='E-Presso Dashboard Analyst', layout='wide')
-st.title('E-Presso Dashboard Analyst')
-st.caption('Upload a file or use the already uploaded files to explore the data and ask questions.')
+
+st.markdown("""
+<div style="
+    background-color: #F8F5F0;
+    padding: 28px 32px;
+    border-radius: 16px;
+    border-left: 6px solid #A47754;
+    margin-bottom: 24px;
+">
+    <h1 style="
+        color: #543A2A;
+        margin: 0;
+        font-size: 38px;
+        font-weight: 750;
+    ">
+        ☕ E-Presso
+    </h1>
+    <p style="
+        color: #A47754;
+        font-size: 13px;
+        letter-spacing: 3px;
+        font-weight: 700;
+        margin: 8px 0;
+    ">
+        BUSINESS INTELLIGENCE
+    </p>
+    <p style="
+        color: #6F594B;
+        font-size: 16px;
+        margin: 0;
+    ">
+        Your business performance, brewed into insights.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+/* KPI metric cards */
+div[data-testid="stMetric"] {
+    background-color: #FFFFFF;
+    border: 1px solid #E8D8C4;
+    border-radius: 16px;
+    padding: 14px 16px;
+    box-shadow: 0 4px 14px rgba(84, 58, 42, 0.06);
+}
+
+/* KPI labels */
+div[data-testid="stMetricLabel"] {
+    color: #8C6A52;
+    font-weight: 600;
+}
+
+/* KPI numbers */
+div[data-testid="stMetricValue"] {
+    color: #543A2A;
+    font-weight: 700;
+}
+
+/* Subtle hover effect */
+div[data-testid="stMetric"]:hover {
+    border-color: #A47754;
+    box-shadow: 0 6px 18px rgba(84, 58, 42, 0.12);
+    transition: all 0.2s ease;
+}
+
+/* Warm latte sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #E8D8C4;
+}
+
+/* Sidebar text */
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] label {
+    color: #543A2A;
+}
+
+/* Multiselect dropdowns */
+div[data-baseweb="select"] > div {
+    background-color: #FFFFFF;
+    border: 1px solid #D8C5B2;
+    border-radius: 10px;
+}
+
+/* Dropdown focus */
+div[data-baseweb="select"] > div:focus-within {
+    border-color: #A47754;
+}
+
+/* Selected filter tags */
+span[data-baseweb="tag"] {
+    background-color: #E8D8C4;
+    border-radius: 6px;
+}
+
+/* File uploader */
+section[data-testid="stFileUploaderDropzone"] {
+    background-color: #F8F5F0;
+    border: 1px dashed #A47754;
+    border-radius: 12px;
+}
+
+
+/* AI Assistant welcome section */
+.assistant-welcome {
+    background: #FFFFFF;
+    border: 1px solid #E8D8C4;
+    border-left: 5px solid #A47754;
+    border-radius: 16px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+}
+
+.assistant-eyebrow {
+    color: #A47754;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+.assistant-welcome h2 {
+    color: #543A2A;
+    margin: 8px 0;
+}
+
+.assistant-welcome p {
+    color: #6F594B;
+    margin-bottom: 0;
+}
+
+/* Chat message cards */
+div[data-testid="stChatMessage"] {
+    background-color: #FFFFFF;
+    border: 1px solid #E8D8C4;
+    border-radius: 14px;
+    padding: 12px;
+}
+
+/* Chat input */
+div[data-testid="stChatInput"] {
+    border-radius: 14px;
+}
+
+/* Calculation details */
+div[data-testid="stExpander"] {
+    border: 1px solid #E8D8C4;
+    border-radius: 12px;
+    background-color: #FFFFFF;
+}
+
+
+/* Assistant response styling */
+div[data-testid="stChatMessage"] {
+    background: #FFFFFF;
+    border: 1px solid #E8D8C4;
+    border-radius: 16px;
+    padding: 20px 24px;
+    box-shadow: 0 3px 12px rgba(84, 58, 42, 0.04);
+}
+
+/* Headings within assistant responses */
+div[data-testid="stChatMessage"] h4 {
+    color: #543A2A;
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+/* Subtle section dividers */
+div[data-testid="stChatMessage"] hr {
+    border-color: #E8D8C4;
+    margin: 16px 0;
+}
+
+/* Scope caption */
+div[data-testid="stChatMessage"] [data-testid="stCaptionContainer"] {
+    color: #A47754;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+}
+
+/* Calculation details */
+div[data-testid="stChatMessage"] [data-testid="stExpander"] {
+    background: #F8F5F0;
+    border: 1px solid #E8D8C4;
+    border-radius: 10px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+def style_coffee_chart(fig, color="#A47754"):
+    """Apply the E-Presso coffeehouse theme to a Plotly chart."""
+    fig.update_layout(
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        font=dict(color="#543A2A", family="Arial"),
+        title_font=dict(size=18, color="#543A2A"),
+        margin=dict(l=35, r=35, t=65, b=45),
+        colorway=["#A47754", "#543A2A", "#C9A88B"],
+        xaxis=dict(
+            showgrid=True,
+            gridcolor="#F0E7DD",
+            zeroline=False,
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor="#F0E7DD",
+            zeroline=False,
+        ),
+    )
+    fig.update_traces(
+        marker_color=color,
+        selector=dict(type="bar"),
+    )
+    fig.update_traces(
+        line=dict(color=color, width=3),
+        marker=dict(color=color, size=9),
+        selector=dict(type="scatter"),
+    )
+    return fig
 
 
 @st.cache_data(show_spinner=False)
@@ -107,8 +329,10 @@ with tab_data:
 
     st.subheader("Data Quality Checks")
 
+    quality_col1, quality_col2, quality_col3, quality_col4 = st.columns(4)
+
     if selected_table == "Sales":
-        st.metric(
+        quality_col1.metric(
             "Duplicate Sales IDs",
             int(df["Sales ID"].duplicated().sum())
         )
@@ -129,39 +353,39 @@ with tab_data:
             0
         )
 
-        st.metric(
+        quality_col2.metric(
             "Sales with Invalid Product IDs",
             int((~df["Product ID"].isin(products_df["Product ID"])).sum())
         )
-        st.metric(
+        quality_col3.metric(
             "Sales with Invalid Category IDs",
             int((~df["Category ID"].isin(categories_df["Category ID"])).sum())
         )
-        st.metric(
+        quality_col4.metric(
             "Sales with Invalid Store IDs",
             int((~df["Store ID"].isin(stores_df["ID"])).sum())
         )
 
     elif selected_table == "Products":
-        st.metric(
+        quality_col1.metric(
             "Duplicate Product IDs",
             int(df["Product ID"].duplicated().sum())
         )
 
     elif selected_table == "Categories":
-        st.metric(
+        quality_col1.metric(
             "Duplicate Category IDs",
             int(df["Category ID"].duplicated().sum())
         )
 
     elif selected_table == "Stores":
-        st.metric(
+        quality_col1.metric(
             "Duplicate Store IDs",
             int(df["ID"].duplicated().sum())
         )
 
     elif selected_table == "Survey Results":
-        st.metric(
+        quality_col1.metric(
             "Duplicate Survey IDs",
             int(df["Survey ID"].duplicated().sum())
         )
@@ -171,12 +395,12 @@ with tab_data:
             0
         )
 
-        st.metric(
+        quality_col2.metric(
             "Survey Records with Invalid Store IDs",
             int((~df["Store ID"].isin(stores_df["ID"])).sum())
         )
 
-        st.metric(
+        quality_col3.metric(
             "Duplicate Survey Records",
             int(df.duplicated().sum())
         )
@@ -190,29 +414,30 @@ with tab_data:
     right.subheader("Data Types")
     right.dataframe(profile["dtypes"])
 
-    st.subheader("Dataset Relationships")
-    st.markdown("""
-    **Sales → Products**
-    - Joined using Product ID.
-    - Identifies which products were sold.
+    
+    with st.expander("View Dataset Relationships"):
+        st.markdown("""
+        **Sales → Products**
+        - Joined using Product ID.
+        - Identifies which products were sold.
 
-    **Sales → Categories**
-    - Joined using Category ID.
-    - Identifies product categories.
+        **Sales → Categories**
+        - Joined using Category ID.
+        - Identifies product categories.
 
-    **Sales → Stores**
-    - Sales Store ID matches Stores ID.
-    - Adds store location, market, and store type.
+        **Sales → Stores**
+        - Sales Store ID matches Stores ID.
+        - Adds store location, market, and store type.
 
-    **Survey Results → Stores**
-    - Connected using Store ID.
-    - Associates satisfaction responses with stores.
+        **Survey Results → Stores**
+        - Connected using Store ID.
+        - Associates satisfaction responses with stores.
 
-    **Survey Results → Sales**
-    - Matched using Store ID and Year.
-    - Uses distinct store-year combinations to avoid
-      duplicating survey responses.
-    """)
+        **Survey Results → Sales**
+        - Matched using Store ID and Year.
+        - Uses distinct store-year combinations to avoid duplicating survey responses.
+        """)
+
 
 with tab_dash:
     st.header("E-Presso Business Performance")
@@ -304,8 +529,14 @@ with tab_dash:
         "September", "October", "November", "December"
     ]
 
+    
+    # Dashboard filter section
+    st.markdown("### ☕ Dashboard Filters")
+    st.caption("Select one or more filters to explore your business performance.")
+
     # Arrange filters in three columns
     col1, col2, col3 = st.columns(3)
+
 
     with col1:
         selected_years = st.multiselect(
@@ -518,7 +749,7 @@ with tab_dash:
         fig_satisfaction.update_yaxes(visible=False)
 
     with chart_col2:
-        st.plotly_chart(fig_satisfaction, width="stretch")
+        st.plotly_chart(style_coffee_chart(fig_satisfaction), width="stretch")
 
 
    # TOTAL REVENUE BY YEAR
@@ -557,7 +788,7 @@ with tab_dash:
 
     # Display chart in left column
     with chart_col1:
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(style_coffee_chart(fig, "#543A2A"), width="stretch")
 
      # -----------------------------------
     # TOTAL REVENUE BY MARKET
@@ -578,7 +809,10 @@ with tab_dash:
     )
     # Display chart in right column
     with chart_col2:
-        st.plotly_chart(fig_store, width="stretch")
+        st.plotly_chart(
+            style_coffee_chart(fig_store),
+            width="stretch"
+    )
 
     # -----------------------------------
     # PERCENTAGE OF REVENUE PER MONTH
@@ -615,11 +849,22 @@ with tab_dash:
 
     # Display chart in left column
     with chart_col1:
-        st.plotly_chart(fig_month, width="stretch")
+        st.plotly_chart(style_coffee_chart(fig_month, "#C9A88B"), width="stretch")
 
 with tab_assistant:
 
-    st.caption("E-Presso Business Analyst | AI Assistant")
+    
+    st.markdown("""
+    <div class="assistant-welcome">
+        <div class="assistant-eyebrow">E-PRESSO INTELLIGENCE</div>
+        <h2>☕ Ask E-Presso AI</h2>
+        <p>
+            Explore your business data, compare performance,
+            and uncover insights through conversation.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.info(
         "The AI Assistant uses all E-Presso data, regardless of your "
         "Dashboard filters. To see specific results, include a year "
@@ -627,36 +872,48 @@ with tab_assistant:
     )
     st.session_state.setdefault("n_questions", 0)
     st.session_state.setdefault("history", [])
+   
+    st.markdown("### Conversation")
 
     # Display previous questions and answers
     for item in st.session_state["history"]:
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar=":material/person:"):
             st.write(item["question"])
 
-        with st.chat_message("assistant"):
+        
+        with st.chat_message(
+            "assistant",
+            avatar=":material/analytics:"
+        ):
             answer = item["answer"]
 
-            # Scope must appear at the beginning
-            st.markdown(f"**Scope:** {answer['scope']}")
+            # Show the scope in a subtle caption
+            st.caption(f"SCOPE · {answer['scope']}")
 
-            st.markdown("**Findings**")
+            # Main findings
+            st.markdown("#### Findings")
             st.markdown(answer["findings"])
 
-            st.markdown("**Interpretation**")
-            if answer["interpretation"]:
-                st.write(answer["interpretation"])
-            else:
-                st.write("No additional interpretation is supported.")
+            st.divider()
 
-            st.markdown("**Next steps**")
+            # Interpretation
+            st.markdown("**Interpretation**")
+            st.write(
+                answer["interpretation"]
+                or "No additional interpretation is supported."
+            )
+
+            # Next steps
+            st.markdown("**Suggested Next Steps**")
             st.write(
                 answer["next_steps"]
                 or "No recommendation is supported by this data."
             )
 
-            # Keep the technical details available
+            # Keep technical evidence available
             with st.expander("View calculation details"):
                 st.json(answer["tool_log"])
+
 
     # Accept a new question
     question = st.chat_input("Ask a question about the loaded data")
