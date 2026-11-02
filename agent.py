@@ -36,6 +36,13 @@ TOOLS = {
             'optionally filtered by year.'
         ),
     },
+    'compare_customer_satisfaction': {
+        'fn': analytics.compare_customer_satisfaction,
+        'params': {'start_year', 'end_year'},
+        'description': (
+            'Compare average customer satisfaction between any two years.'
+        ),
+    },
     'greatest_store_revenue_decline': {
         'fn': analytics.greatest_store_revenue_decline,
         'params': set(),
@@ -104,7 +111,10 @@ def run_tool(name: str, args: dict, df, log: list, survey_df=None) -> ToolResult
                 f"Unexpected argument(s): {sorted(unexpected)}"
             )
 
-        elif name == "get_average_satisfaction":
+        elif name in (
+            "get_average_satisfaction",
+            "compare_customer_satisfaction"
+        ):
             if survey_df is None:
                 result = analytics._error(
                     name,
@@ -318,6 +328,33 @@ def llm_router(question, df):
 
         {
             "type": "function",
+            "name": "compare_customer_satisfaction",
+            "description": (
+                "Compare average customer satisfaction between any two years. "
+                "Use this when the user asks how satisfaction changed, "
+                "increased, decreased, or differed between two years. "
+                "Do not use get_average_satisfaction for comparisons."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "start_year": {
+                        "type": "integer",
+                        "description": "The first year to compare."
+                    },
+                    "end_year": {
+                        "type": "integer",
+                        "description": "The second year to compare."
+                    }
+                },
+                "required": ["start_year", "end_year"],
+                "additionalProperties": False
+            },
+            "strict": True
+        },
+
+        {
+            "type": "function",
             "name": "greatest_store_revenue_decline",
             "description": (
                 "Find which store experienced the greatest percentage "
@@ -422,9 +459,15 @@ def llm_router(question, df):
             "You are a tool-selection assistant for E-Presso. "
             "Choose only an available analytical function. "
             "Never calculate numbers yourself. "
-            "If the question cannot be answered using the "
-            "available functions, do not call a tool. "
-            "Do not invent columns, years, or filters."
+            "Do not invent columns, years, filters, or explanations. "
+            "Preserve the order of years requested by the user. "
+            "For comparisons, start_year must be the year after 'from' "
+            "and end_year must be the year after 'to'. "
+            "If a question asks WHY something happened or requests a cause, "
+            "do not select a numerical comparison tool as though it "
+            "could explain the cause. "
+            "If the available tools cannot answer the actual question, "
+            "do not call a tool."
         ),
         input=(
             f"Available years: "
@@ -458,7 +501,29 @@ def format_findings(result: ToolResult, question: str = "") -> str:
 
     if result.error:
         return f"I couldn't complete that calculation: {result.error}"
+
     
+    if result.tool == "compare_customer_satisfaction":
+        data = result.value
+
+        difference = data["difference"]
+
+        if difference > 0:
+            change_description = "increased"
+        elif difference < 0:
+            change_description = "decreased"
+        else:
+            change_description = "stayed the same"
+
+        return (
+            f"Average customer satisfaction {change_description} "
+            f"from **{data['start_average']:.2f} out of 5** "
+            f"in {data['start_year']} to "
+            f"**{data['end_average']:.2f} out of 5** "
+            f"in {data['end_year']}.\n\n"
+            f"**Change:** {difference:+.2f} points."
+        )
+
     if result.tool == "get_average_satisfaction":
         return (
             f"The average customer satisfaction score is "
@@ -712,7 +777,12 @@ def answer_question(
     if routed is None:
         return {
             'scope': 'Selected dataset; no calculation performed',
-            'findings': UNSUPPORTED,
+            'findings': (
+                "I can't answer that question reliably with the available data. "
+                "I can analyze revenue, compare markets and stores, and calculate "
+                "customer satisfaction scores and changes over time. "
+                "However, these calculations cannot establish why a change occurred."
+            ),
             'interpretation': (
                 'The current analytical tools cannot reliably '
                 'answer this question.'
@@ -725,7 +795,23 @@ def answer_question(
         }
 
     name, args = routed
+
+            # Preserve the order of years explicitly requested by the user
+    if name == "compare_customer_satisfaction":
+        import re
+
+        year_match = re.search(
+                r"\bfrom\s+(20\d{2})\s+to\s+(20\d{2})\b",
+                question,
+                flags=re.IGNORECASE
+            )
+
+        if year_match:
+                args["start_year"] = int(year_match.group(1))
+                args["end_year"] = int(year_match.group(2))
+
     result = run_tool(name, args, df, log, survey_df=survey_df)
+
 
     # Choose summary or full table for revenue-decline questions
     if name == "get_store_revenue_declines" and not result.error:

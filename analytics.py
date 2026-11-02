@@ -351,7 +351,10 @@ def get_average_satisfaction(df, year=None) -> ToolResult:
                 "Survey data does not contain a Year column."
             )
 
-        df = df[pd.to_numeric(df["Year"], errors="coerce") == year]
+        df = df[
+            df["Year"].astype(str).str.strip().str.upper()
+            == f"Y{year}"
+        ]
 
     scores = pd.to_numeric(df["Satisfaction"], errors="coerce")
     valid_scores = scores.dropna()
@@ -722,3 +725,60 @@ def calculate_year_over_year_growth(df):
     result = calculate_revenue_growth(previous_revenue, current_revenue)
 
     return result["percentage_change"]
+
+
+def compare_customer_satisfaction(df, start_year, end_year) -> ToolResult:
+    """Compare average customer satisfaction between any two years."""
+
+    name = "compare_customer_satisfaction"
+
+    if "Year" not in df.columns or "Satisfaction" not in df.columns:
+        return _error(
+            name,
+            "Survey data must contain Year and Satisfaction columns."
+        )
+
+    def average_for_year(year):
+        year_rows = df[
+            df["Year"].astype(str).str.strip().str.upper()
+            == f"Y{year}"
+        ]
+
+        scores = pd.to_numeric(
+            year_rows["Satisfaction"], errors="coerce"
+        ).dropna()
+
+        return scores.mean() if not scores.empty else None
+
+    start_average = average_for_year(start_year)
+    end_average = average_for_year(end_year)
+
+    if start_average is None or end_average is None:
+        return _error(
+            name,
+            "No valid satisfaction scores were found for one or both years."
+        )
+
+    difference = float(end_average - start_average)
+
+    return ToolResult(
+        tool=name,
+        value={
+            "start_year": start_year,
+            "end_year": end_year,
+            "start_average": float(start_average),
+            "end_average": float(end_average),
+            "difference": difference
+        },
+        definition="Change in average customer satisfaction between two years.",
+        scope={
+            "dataset": "Survey Results",
+            "filters": {"Year": [start_year, end_year]}
+        },
+        rows_used=0,
+        caveats=[
+            "Scores represent survey respondents, not all customers.",
+            "A change in satisfaction does not establish its cause."
+        ]
+    )
+
