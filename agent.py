@@ -39,6 +39,22 @@ TOOLS = {
             'Find the store with the greatest percentage revenue '
             'decline between consecutive years.'
         ),
+        },
+        'greatest_store_revenue_increase': {
+        'fn': analytics.greatest_store_revenue_increase,
+        'params': set(),
+        'description': (
+            'Find the store with the greatest percentage revenue '
+            'increase between consecutive years.'
+        ),
+        },
+        'compare_store_revenue_growth': {
+        'fn': analytics.compare_store_revenue_growth,
+        'params': {'start_year', 'end_year', 'metric'},
+        'description': (
+            'Find the store with the greatest revenue increase between '
+            'two specified years, measured by percentage or dollars.'
+        ),
     },
 }
 
@@ -291,6 +307,58 @@ def llm_router(question, df):
             },
             "strict": True
         },
+
+        {
+            "type": "function",
+            "name": "greatest_store_revenue_increase",
+            "description": (
+                "Find which store experienced the greatest percentage "
+                "revenue increase between any two consecutive years. "
+                "Use for questions about the largest or best "
+                "year-over-year store revenue increase. "
+                "Does not support comparisons restricted to specific years."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False
+            },
+            "strict": True
+        },
+
+            
+        {
+            "type": "function",
+            "name": "compare_store_revenue_growth",
+            "description": (
+                "Find the store with the greatest revenue increase between "
+                "two specified years. Use metric='percentage' for the highest "
+                "percentage growth, or metric='dollars' for the largest "
+                "dollar increase. Requires a start year and end year."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "start_year": {
+                        "type": "integer",
+                        "description": "The starting year, such as 2028."
+                    },
+                    "end_year": {
+                        "type": "integer",
+                        "description": "The ending year, such as 2029."
+                    },
+                    "metric": {
+                        "type": "string",
+                        "enum": ["percentage", "dollars"],
+                        "description": "How to measure revenue growth."
+                    }
+                },
+                "required": ["start_year", "end_year", "metric"],
+                "additionalProperties": False
+            },
+            "strict": True
+        },
     ]
 
     response = client.responses.create(
@@ -342,6 +410,61 @@ def format_findings(result: ToolResult) -> str:
             f"**{result.value:.2f} out of 5**, "
             f"based on {result.rows_used:,} valid survey responses."
         )
+    if result.tool == "greatest_store_revenue_decline":
+            data = result.value
+
+            decrease = (
+                data["previous_revenue"] - data["current_revenue"]
+            )
+
+            return (
+                f"**Store {data['store_id']}** experienced the greatest "
+                f"year-over-year percentage revenue decline, falling "
+                f"**{abs(data['percentage_change']):.2f}%** "
+                f"from {data['previous_year']} to {data['year']}.\n\n"
+                f"Revenue decreased from "
+                f"\\${data['previous_revenue']:,.2f} to "
+                f"\\${data['current_revenue']:,.2f}, "
+                f"a decrease of \\${decrease:,.2f}."
+            )
+    if result.tool == "greatest_store_revenue_increase":
+        data = result.value
+
+        increase = (
+            data["current_revenue"] - data["previous_revenue"]
+        )
+
+        return (
+            f"**Store {data['store_id']}** experienced the greatest "
+            f"year-over-year percentage revenue increase, rising "
+            f"**{data['percentage_change']:.2f}%** "
+            f"from {data['previous_year']} to {data['year']}.\n\n"
+            f"Revenue increased from "
+            f"\\${data['previous_revenue']:,.2f} to "
+            f"\\${data['current_revenue']:,.2f}, "
+            f"an increase of \\${increase:,.2f}."
+        )
+    
+    if result.tool == "compare_store_revenue_growth":
+        data = result.value
+
+        if data["metric"] == "percentage":
+            measurement = "percentage revenue growth"
+            growth = f"{data['percentage_change']:.2f}%"
+        else:
+            measurement = "dollar revenue growth"
+            growth = f"\\${data['dollar_change']:,.2f}"
+
+        return (
+            f"**Store {data['store_id']}** had the greatest "
+            f"{measurement} from {data['start_year']} "
+            f"to {data['end_year']}, increasing by **{growth}**.\n\n"
+            f"Revenue increased from "
+            f"\\${data['start_revenue']:,.2f} to "
+            f"\\${data['end_revenue']:,.2f}, "
+            f"a total increase of \\${data['dollar_change']:,.2f}."
+        )
+    
 
     # Format a single revenue result
     if result.tool == "get_total" and isinstance(result.value, (int, float)):
@@ -468,7 +591,7 @@ def answer_question(
     name, args = routed
     result = run_tool(name, args, df, log, survey_df=survey_df)
 
-    # Create a readable description of the calculation scope
+       # Create a readable description of the calculation scope
     filters = result.scope.get('filters', 'All records')
 
     if isinstance(filters, dict):
@@ -479,6 +602,8 @@ def answer_question(
             )
         else:
             scope_text = 'All records'
+    elif isinstance(filters, str):
+        scope_text = filters if filters.strip() else 'All records'
     else:
         scope_text = 'All records'
 
