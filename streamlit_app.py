@@ -872,7 +872,16 @@ with tab_assistant:
     )
     st.session_state.setdefault("n_questions", 0)
     st.session_state.setdefault("history", [])
+
    
+    if st.session_state.get("assistant_fallback", False):
+        st.info(
+            "☕ The AI service is unavailable or its quota "
+            "may have been reached. E-Presso is using "
+            "rules-based analysis for supported questions."
+        )
+
+
     st.markdown("### Conversation")
 
     # Display previous questions and answers
@@ -934,13 +943,40 @@ with tab_assistant:
                     assistant_df["Date"]
                 ).dt.year
 
-            # Ask the rules-based assistant
-            answer = agent.answer_question(
-                question,
-                assistant_df,
-                mode="llm",
-                survey_df=assistant_survey_df
-            )
+          
+            # Try the AI assistant first.
+            # If the API fails, use the rules-based assistant.
+            
+            # Try OpenAI first, then fall back to rules-based analysis.
+            try:
+                answer = agent.answer_question(
+                    question,
+                    assistant_df,
+                    mode="llm",
+                    survey_df=assistant_survey_df
+                )
+
+            except Exception:
+                st.session_state["assistant_fallback"] = False
+
+                try:
+                    answer = agent.answer_question(
+                        question,
+                        assistant_df,
+                        mode="rules",
+                        survey_df=assistant_survey_df
+                    )
+                except Exception:
+                    answer = {
+                        "scope": "No calculation performed",
+                        "findings": (
+                            "The assistant is temporarily unavailable. "
+                            "Please try again later."
+                        ),
+                        "interpretation": "",
+                        "next_steps": "",
+                        "tool_log": []
+                    }
 
 
             # Save the answer to chat history
