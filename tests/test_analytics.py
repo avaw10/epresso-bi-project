@@ -131,3 +131,13 @@ def test_dispatcher_rejects_unknown_tool_and_arguments(df):
 def test_unsupported_question(df):
     out = agent.answer_question('What is the meaning of life?', df)
     assert 'cannot answer' in out['findings']
+
+def test_profitability_question_is_rejected(df):
+    result = agent.answer_question(
+        "Which E-Presso store is the most profitable?",
+        df
+    )
+
+    assert "cannot determine" in result["findings"].lower()
+    assert "expenses" in result["findings"].lower()
+    assert result["tool_log"] == []

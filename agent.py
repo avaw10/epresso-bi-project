@@ -469,6 +469,10 @@ def llm_router(question, df):
             "select the appropriate comparison tool. "
             "If a question asks WHY a change happened or requests its cause, "
             "do not treat a numerical comparison as an explanation of the cause. "
+            "If a question asks about profit, profitability, profit margins, "
+            "or which store is most profitable, do not substitute revenue "
+            "for profit. The available data does not contain the expenses "
+            "needed to calculate profitability. Do not call a tool. "
             "If the available tools cannot answer the actual question, "
             "do not call a tool."
         ),
@@ -777,6 +781,36 @@ def answer_question(
     survey_df=None
 ) -> dict:
     log = []
+    question_lower = question.lower()
+
+    profit_terms = (
+        "profit",
+        "profitable",
+        "profitability",
+        "profit margin",
+        "operating margin",
+        "net margin",
+    )
+
+    if any(term in question_lower for term in profit_terms):
+        return {
+            'scope': 'All available E-Presso data; no calculation performed',
+            'findings': (
+                "I cannot determine which E-Presso store is the most "
+                "profitable because the available data includes revenue "
+                "but does not include the expenses needed to calculate profit."
+            ),
+            'interpretation': (
+                "Revenue and profit are different. A store with the highest "
+                "revenue is not necessarily the most profitable."
+            ),
+            'next_steps': (
+                "To compare store profitability, we would need store-level "
+                "expenses such as labor, inventory costs, rent, and "
+                "other operating costs."
+            ),
+            'tool_log': log
+        }
 
     routed = (
         rules_router(question, df)
