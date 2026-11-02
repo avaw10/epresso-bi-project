@@ -457,15 +457,18 @@ def llm_router(question, df):
         model="gpt-4.1-mini",
         instructions=(
             "You are a tool-selection assistant for E-Presso. "
-            "Choose only an available analytical function. "
+            "Choose only available analytical functions. "
+            "If a question requires multiple calculations, select every "
+            "necessary tool so all parts of the question can be answered. "
             "Never calculate numbers yourself. "
             "Do not invent columns, years, filters, or explanations. "
             "Preserve the order of years requested by the user. "
             "For comparisons, start_year must be the year after 'from' "
             "and end_year must be the year after 'to'. "
-            "If a question asks WHY something happened or requests a cause, "
-            "do not select a numerical comparison tool as though it "
-            "could explain the cause. "
+            "If a question asks HOW a numerical value changed between years, "
+            "select the appropriate comparison tool. "
+            "If a question asks WHY a change happened or requests its cause, "
+            "do not treat a numerical comparison as an explanation of the cause. "
             "If the available tools cannot answer the actual question, "
             "do not call a tool."
         ),
@@ -478,23 +481,30 @@ def llm_router(question, df):
         tool_choice="auto"
     )
 
+  
+    selected_tools = []
+
     for item in response.output:
-            if item.type == "function_call":
-                args = json.loads(item.arguments)
+        if item.type == "function_call":
+            args = json.loads(item.arguments)
 
-                # Remove empty year filters before calling Python
-                if "filters" in args:
-                    filters = args["filters"]
+            # Remove empty year filters before calling Python
+            if "filters" in args:
+                filters = args["filters"]
 
-                    if filters is None:
-                        args["filters"] = {}
-                    elif isinstance(filters, dict):
-                        if filters.get("Year") is None:
-                            filters.pop("Year", None)
+                if filters is None:
+                    args["filters"] = {}
+                elif isinstance(filters, dict):
+                    if filters.get("Year") is None:
+                        filters.pop("Year", None)
 
-                return item.name, args
+            selected_tools.append((item.name, args))
+
+    if selected_tools:
+        return selected_tools
 
     return None
+
 
 def format_findings(result: ToolResult, question: str = "") -> str:
     """Turn calculation results into readable business answers."""
@@ -794,24 +804,51 @@ def answer_question(
             'tool_log': log
         }
 
-    name, args = routed
+    
+    # Rules mode returns one tool; LLM mode may return multiple tools.
+    if isinstance(routed, tuple):
+        routed = [routed]
 
-            # Preserve the order of years explicitly requested by the user
-    if name == "compare_customer_satisfaction":
-        import re
+    
+    if not routed:
+        return {
+            'scope': 'Selected dataset; no calculation performed',
+            'findings': 'No analytical tools were selected.',
+            'interpretation': 'The question could not be calculated.',
+            'next_steps': 'Try asking a more specific question.',
+            'tool_log': log
+        }
 
-        year_match = re.search(
+    import re
+
+    # Preserve year order for every satisfaction comparison
+    for tool_name, tool_args in routed:
+        if tool_name == "compare_customer_satisfaction":
+            year_match = re.search(
                 r"\bfrom\s+(20\d{2})\s+to\s+(20\d{2})\b",
                 question,
                 flags=re.IGNORECASE
             )
 
-        if year_match:
-                args["start_year"] = int(year_match.group(1))
-                args["end_year"] = int(year_match.group(2))
+            if year_match:
+                tool_args["start_year"] = int(year_match.group(1))
+                tool_args["end_year"] = int(year_match.group(2))
 
-    result = run_tool(name, args, df, log, survey_df=survey_df)
+    name, args = routed[0]
 
+
+    for tool_name, tool_args in routed:
+        tool_result = run_tool(
+            tool_name,
+            tool_args,
+            df,
+            log,
+            survey_df=survey_df
+        )
+        results.append(tool_result)
+
+    # Keep the first result for existing single-tool formatting
+    result = results[0]
 
     # Choose summary or full table for revenue-decline questions
     if name == "get_store_revenue_declines" and not result.error:
@@ -849,7 +886,18 @@ def answer_question(
 
 
        # Create a readable description of the calculation scope
-    filters = result.scope.get('filters', 'All records')
+        
+    filters = {}
+
+    for tool_result in results:
+        tool_filters = tool_result.scope.get('filters', {})
+
+        if isinstance(tool_filters, dict):
+            for key, value in tool_filters.items():
+                if key not in filters:
+                    filters[key] = value
+                elif filters[key] != value:
+                    filters[key] = f"{filters[key]}; {value}"
 
     if isinstance(filters, dict):
         if filters:
@@ -885,8 +933,17 @@ def answer_question(
 
     return {
         'scope': scope_text,
-        'findings': format_findings(result, question),
-        'interpretation': ' '.join(result.caveats),
+        'findings': '\n\n'.join(
+            format_findings(tool_result, question)
+            for tool_result in results
+        ),
+        'interpretation': ' '.join(
+            dict.fromkeys(
+                caveat
+                for tool_result in results
+                for caveat in tool_result.caveats
+            )
+        ),
         'next_steps': next_steps,
         'tool_log': log
     }

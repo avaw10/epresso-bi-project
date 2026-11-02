@@ -619,7 +619,7 @@ with tab_dash:
 
 with tab_assistant:
 
-    st.caption("E-Presso Business Analyst | Rules-based assistant")
+    st.caption("E-Presso Business Analyst | LLM assistant")
 
     st.session_state.setdefault("n_questions", 0)
     st.session_state.setdefault("history", [])
