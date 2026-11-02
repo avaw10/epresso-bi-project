@@ -55,7 +55,17 @@ TOOLS = {
             'Find the store with the greatest revenue increase between '
             'two specified years, measured by percentage or dollars.'
         ),
+     },
+        'get_store_revenue_declines': {
+        'fn': analytics.get_store_revenue_declines,
+        'params': {'start_year', 'end_year'},
+        'description': (
+            'Find all stores with declining revenue between two '
+            'specified years. Return dollar changes, percentage '
+            'changes, and counts for detailed tables or summaries.'
+        ),
     },
+
 }
 
 UNSUPPORTED = ("I can't answer that question reliably with my current analytical tools. "
@@ -359,6 +369,34 @@ def llm_router(question, df):
             },
             "strict": True
         },
+
+        {
+            "type": "function",
+            "name": "get_store_revenue_declines",
+            "description": (
+                "Find all stores with declining revenue between two specified "
+                "years. Return each store's revenue, dollar change, and "
+                "percentage change, along with counts. Use for questions "
+                "requesting either a full table or a summary of declining stores."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "start_year": {
+                        "type": "integer",
+                        "description": "The starting year, such as 2028."
+                    },
+                    "end_year": {
+                        "type": "integer",
+                        "description": "The ending year, such as 2029."
+                    }
+                },
+                "required": ["start_year", "end_year"],
+                "additionalProperties": False
+            },
+            "strict": True
+        },
+
     ]
 
     response = client.responses.create(
@@ -464,6 +502,50 @@ def format_findings(result: ToolResult) -> str:
             f"\\${data['end_revenue']:,.2f}, "
             f"a total increase of \\${data['dollar_change']:,.2f}."
         )
+    
+    if result.tool == "get_store_revenue_declines":
+        data = result.value
+        stores = data["stores"]
+
+
+        if data.get("display_mode") == "summary":
+            return (
+                data["summary"]
+                + "\n\n**Calculations:**\n"
+                + "- Dollar Change = Ending Revenue - Starting Revenue\n"
+                + "- Percentage Change = (Dollar Change / Starting Revenue) × 100"
+            )
+        
+        if not stores:
+            return (
+                f"No stores experienced declining revenue from "
+                f"{data['start_year']} to {data['end_year']}."
+            )
+
+        lines = [
+            f"**{data['declining_store_count']} of "
+            f"{data['compared_store_count']} stores** had declining "
+            f"revenue from {data['start_year']} to {data['end_year']}.\n",
+            "| Store | Starting Revenue | Ending Revenue | Dollar Change | Percentage Change |",
+            "|---|---:|---:|---:|---:|"
+        ]
+
+        for store in stores:
+            lines.append(
+                f"| {store['store_id']} "
+                f"| \\${store['start_revenue']:,.2f} "
+                f"| \\${store['end_revenue']:,.2f} "
+                f"| \\${store['dollar_change']:,.2f} "
+                f"| {store['percentage_change']:.2f}% |"
+            )
+
+        lines.append(
+            "\n**Calculations:**\n"
+            "- Dollar Change = Ending Revenue - Starting Revenue\n"
+            "- Percentage Change = (Dollar Change / Starting Revenue) × 100"
+        )
+
+        return "\n".join(lines)
     
 
     # Format a single revenue result
@@ -590,6 +672,41 @@ def answer_question(
 
     name, args = routed
     result = run_tool(name, args, df, log, survey_df=survey_df)
+
+    # Choose summary or full table for revenue-decline questions
+    if name == "get_store_revenue_declines" and not result.error:
+        question_lower = question.lower()
+
+        if any(word in question_lower for word in [
+            "summarize", "summary", "overview", "brief"
+        ]):
+            data = result.value
+            stores = data["stores"]
+
+            if stores:
+                worst = stores[0]
+
+                result.value["display_mode"] = "summary"
+                result.value["summary"] = (
+                    f"{data['declining_store_count']} of "
+                    f"{data['compared_store_count']} stores had "
+                    f"declining revenue from {data['start_year']} "
+                    f"to {data['end_year']}. "
+                    f"Store {worst['store_id']} had the largest "
+                    f"percentage decline at "
+                    f"{worst['percentage_change']:.2f}%, "
+                    f"equivalent to a dollar change of "
+                    f"${worst['dollar_change']:,.2f}."
+                )
+            else:
+                result.value["display_mode"] = "summary"
+                result.value["summary"] = (
+                    "No stores experienced declining revenue "
+                    "during the selected period."
+                )
+        else:
+            result.value["display_mode"] = "table"
+
 
        # Create a readable description of the calculation scope
     filters = result.scope.get('filters', 'All records')

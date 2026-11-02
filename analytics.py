@@ -590,3 +590,83 @@ def compare_store_revenue_growth(
             "Revenue growth does not establish the cause."
         ]
     )
+def get_store_revenue_declines(
+    df: pd.DataFrame,
+    start_year: int,
+    end_year: int
+) -> ToolResult:
+    """Find all stores with declining revenue between two years."""
+
+    name = "get_store_revenue_declines"
+    required = ["Store ID", "Year", "Revenue"]
+
+    for col in required:
+        if col not in df.columns:
+            return _error(name, f"Missing required column: {col}")
+
+    if end_year <= start_year:
+        return _error(name, "End year must be after start year.")
+
+    work = df[required].copy()
+    work["Year"] = pd.to_numeric(work["Year"], errors="coerce")
+    work["Revenue"] = pd.to_numeric(work["Revenue"], errors="coerce")
+    work = work.dropna(subset=required)
+    work = work[work["Year"].isin([start_year, end_year])]
+
+    yearly = (
+        work.groupby(["Store ID", "Year"])["Revenue"]
+        .sum()
+        .unstack()
+    )
+
+    if start_year not in yearly.columns or end_year not in yearly.columns:
+        return _error(name, "One or both years have no revenue data.")
+
+    yearly = yearly.dropna(subset=[start_year, end_year]).copy()
+    yearly = yearly[yearly[start_year] > 0].copy()
+
+    if yearly.empty:
+        return _error(name, "No stores have comparable revenue data.")
+
+    yearly["Dollar Change"] = yearly[end_year] - yearly[start_year]
+    yearly["Percentage Change"] = (
+        yearly["Dollar Change"] / yearly[start_year] * 100
+    )
+
+    declines = yearly[yearly["Dollar Change"] < 0].copy()
+    declines = declines.sort_values("Percentage Change")
+
+    stores = []
+    for store_id, row in declines.iterrows():
+        stores.append({
+            "store_id": str(store_id),
+            "start_revenue": float(row[start_year]),
+            "end_revenue": float(row[end_year]),
+            "dollar_change": float(row["Dollar Change"]),
+            "percentage_change": float(row["Percentage Change"])
+        })
+
+    return ToolResult(
+        tool=name,
+        value={
+            "start_year": int(start_year),
+            "end_year": int(end_year),
+            "declining_store_count": len(stores),
+            "compared_store_count": len(yearly),
+            "stores": stores
+        },
+        definition=(
+            "Dollar change = end-year revenue - start-year revenue. "
+            "Percentage change = dollar change / start-year revenue * 100."
+        ),
+        scope={
+            "dataset": "Sales",
+            "filters": f"{start_year} to {end_year}"
+        },
+        rows_used=len(work),
+        caveats=[
+            "Only compares stores with records in both years.",
+            "Excludes stores with zero or negative starting revenue.",
+            "Revenue decline does not establish the cause."
+        ]
+    )
