@@ -397,10 +397,25 @@ with tab_dash:
             merged_df["State"].isin(selected_states)
         ]
 
+    if merged_df.empty:
+        st.info(
+            "No sales data matches the selected filters. "
+            "Try changing or clearing one or more filters."
+        )
+
     # Calculate revenue AFTER applying filters
     total_revenue = analytics.calculate_total_revenue(merged_df)
 
-    revenue_col, satisfaction_col = st.columns(2)
+    revenue_col, satisfaction_col, growth_col = st.columns(3)
+    growth_percentage = analytics.calculate_year_over_year_growth(merged_df)
+
+    with growth_col:
+        st.metric(
+            label="Year-over-Year Revenue Growth",
+            value=f"{growth_percentage:+.2f}%"
+            if growth_percentage is not None
+            else "N/A"
+        )
 
     with revenue_col:
         st.metric(
@@ -423,10 +438,13 @@ with tab_dash:
     # Display the metric
     with satisfaction_col:
         st.metric(
-            label="Average Customer Satisfaction",
+            label="Average Store Customer Satisfaction",
             value=f"{average_satisfaction:.2f} / 5"
             if pd.notna(average_satisfaction)
             else "No survey data"
+        )
+        st.caption(
+            "Customer satisfaction is based on store-level survey responses, not individual product categories."
         )
 
         # -----------------------------------
@@ -530,8 +548,7 @@ with tab_dash:
     # Format years without commas
     fig.update_xaxes(
         tickmode="array",
-        tickvals=[2025, 2026, 2027, 2028, 2029],
-        ticktext=["2025", "2026", "2027", "2028", "2029"],
+        tickvals=revenue_by_year["Year"].tolist(),
         tickangle=0,
         title="Year"
     )
@@ -543,7 +560,7 @@ with tab_dash:
         st.plotly_chart(fig, width="stretch")
 
      # -----------------------------------
-    # TOTAL REVENUE BY STORE TYPE
+    # TOTAL REVENUE BY MARKET
     # -----------------------------------
 
     revenue_by_store_type = analytics.calculate_revenue_by_market(merged_df)
@@ -570,14 +587,8 @@ with tab_dash:
     # Extract the month from the Date column
     merged_df["Month"] = merged_df["Date"].dt.month
 
-    # Calculate revenue by month
+    # Calculate monthly revenue percentages in analytics.py
     revenue_by_month = analytics.calculate_monthly_revenue_percentage(merged_df)
-
-    # Calculate each month's percentage of total revenue
-    revenue_by_month["Percentage"] = (
-        revenue_by_month["Revenue"]
-        / revenue_by_month["Revenue"].sum() * 100
-    )
 
     # Create the chart
     fig_month = px.bar(

@@ -670,3 +670,40 @@ def get_store_revenue_declines(
             "Revenue decline does not establish the cause."
         ]
     )
+
+def calculate_revenue_growth(start_revenue, end_revenue):
+    """Calculate dollar and percentage revenue growth."""
+
+    dollar_change = end_revenue - start_revenue
+
+    if start_revenue <= 0:
+        percentage_change = None
+    else:
+        percentage_change = (
+            dollar_change / start_revenue
+        ) * 100
+
+    return {
+        "dollar_change": dollar_change,
+        "percentage_change": percentage_change
+    }
+
+def calculate_year_over_year_growth(df):
+    """Calculate revenue growth between the latest two consecutive years."""
+    revenue_by_year = calculate_revenue_by_year(df)
+
+    if len(revenue_by_year) < 2:
+        return None
+
+    previous_year = revenue_by_year.iloc[-2]["Year"]
+    current_year = revenue_by_year.iloc[-1]["Year"]
+
+    if current_year - previous_year != 1:
+        return None
+
+    previous_revenue = revenue_by_year.iloc[-2]["Revenue"]
+    current_revenue = revenue_by_year.iloc[-1]["Revenue"]
+
+    result = calculate_revenue_growth(previous_revenue, current_revenue)
+
+    return result["percentage_change"]

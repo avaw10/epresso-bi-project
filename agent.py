@@ -239,8 +239,12 @@ def llm_router(question, df):
         {
             "type": "function",
             "name": "group_total",
-            "description": "Calculate revenue by year or compare revenue across years.",
-            "parameters": {
+            "description": (
+                "Calculate revenue grouped by Year or Market. "
+                "Use Market when asked which market has the highest or lowest "
+                "revenue, or to compare revenue across markets. "
+                "Use Year for revenue trends or comparisons across years."
+            ),            "parameters": {
                 "type": "object",
                 "properties": {
                     "value_col": {
@@ -249,7 +253,7 @@ def llm_router(question, df):
                     },
                     "group_col": {
                         "type": "string",
-                        "enum": ["Year"]
+                        "enum": ["Year", "Market"]
                     },
                     "filters": {
                         "type": "object",
@@ -436,7 +440,7 @@ def llm_router(question, df):
 
     return None
 
-def format_findings(result: ToolResult) -> str:
+def format_findings(result: ToolResult, question: str = "") -> str:
     """Turn calculation results into readable business answers."""
 
     if result.error:
@@ -506,15 +510,9 @@ def format_findings(result: ToolResult) -> str:
     if result.tool == "get_store_revenue_declines":
         data = result.value
         stores = data["stores"]
-
-
+      
         if data.get("display_mode") == "summary":
-            return (
-                data["summary"]
-                + "\n\n**Calculations:**\n"
-                + "- Dollar Change = Ending Revenue - Starting Revenue\n"
-                + "- Percentage Change = (Dollar Change / Starting Revenue) × 100"
-            )
+            return data["summary"]
         
         if not stores:
             return (
@@ -535,19 +533,12 @@ def format_findings(result: ToolResult) -> str:
                 f"| {store['store_id']} "
                 f"| \\${store['start_revenue']:,.2f} "
                 f"| \\${store['end_revenue']:,.2f} "
-                f"| \\${store['dollar_change']:,.2f} "
+                f"| {'-' if store['dollar_change'] < 0 else ''}\\${abs(store['dollar_change']):,.2f} "
                 f"| {store['percentage_change']:.2f}% |"
             )
 
-        lines.append(
-            "\n**Calculations:**\n"
-            "- Dollar Change = Ending Revenue - Starting Revenue\n"
-            "- Percentage Change = (Dollar Change / Starting Revenue) × 100"
-        )
-
         return "\n".join(lines)
     
-
     # Format a single revenue result
     if result.tool == "get_total" and isinstance(result.value, (int, float)):
         revenue = f"${result.value:,.2f}"
@@ -567,6 +558,54 @@ def format_findings(result: ToolResult) -> str:
 
     # Format revenue by year
     if result.tool == "group_total" and isinstance(result.value, dict):
+                # Market comparisons should not be treated as year-over-year growth
+        if "Market" in result.definition and result.tool == "group_total":
+            if not result.value:
+                return "No market revenue data was found for the selected filters."
+
+            ranked_markets = sorted(
+                result.value.items(),
+                key=lambda item: item[1],
+                reverse=True
+            )
+
+            question_lower = question.lower()
+
+            asking_lowest = any(
+                word in question_lower
+                for word in ["least", "lowest", "smallest", "minimum"]
+            )
+
+        asking_highest = any(
+        word in question_lower
+        for word in ["most", "highest", "largest", "maximum", "top"]
+        )
+
+        if asking_lowest:
+            selected_market, selected_revenue = ranked_markets[-1]
+            comparison = "least"
+        elif asking_highest:
+            selected_market, selected_revenue = ranked_markets[0]
+            comparison = "most"
+        else:
+            selected_market = None
+            selected_revenue = None
+            comparison = None
+
+            lines = []
+
+            if selected_market is not None:
+                lines.append(
+                    f"**{selected_market}** generated the {comparison} revenue, "
+                    f"with **${selected_revenue:,.2f}**.\n"
+                )
+
+            lines.append("**Revenue by market:**")
+
+            for market, revenue in ranked_markets:
+                lines.append(f"- **{market}:** ${revenue:,.2f}")
+
+            return "\n".join(lines)
         filters = result.scope.get("filters", {})
 
         lines = ["E-Presso generated the following revenue each year:\n"]
@@ -585,12 +624,13 @@ def format_findings(result: ToolResult) -> str:
             last_revenue = result.value[last_year]
 
             if first_revenue > 0:
-                growth = (
-                    (last_revenue - first_revenue)
-                    / first_revenue
-                ) * 100
+                growth_result = analytics.calculate_revenue_growth(
+                    first_revenue,
+                    last_revenue
+                )
 
-                difference = last_revenue - first_revenue
+                growth = growth_result["percentage_change"]
+                difference = growth_result["dollar_change"]
 
                 direction = (
                     "increased" if difference >= 0 else "decreased"
@@ -696,7 +736,7 @@ def answer_question(
                     f"percentage decline at "
                     f"{worst['percentage_change']:.2f}%, "
                     f"equivalent to a dollar change of "
-                    f"${worst['dollar_change']:,.2f}."
+                    f"{'-' if worst['dollar_change'] < 0 else ''}\\${abs(worst['dollar_change']):,.2f}."
                 )
             else:
                 result.value["display_mode"] = "summary"
@@ -745,7 +785,7 @@ def answer_question(
 
     return {
         'scope': scope_text,
-        'findings': format_findings(result),
+        'findings': format_findings(result, question),
         'interpretation': ' '.join(result.caveats),
         'next_steps': next_steps,
         'tool_log': log
